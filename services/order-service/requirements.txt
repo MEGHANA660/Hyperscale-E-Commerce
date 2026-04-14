@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+aiokafka
+motor
+python-dotenv
+httpx
+python-multipart

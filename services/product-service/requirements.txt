@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+redis
+elasticsearch>=8.0.0
+motor
+python-dotenv
+httpx
+python-multipart

@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+redis
+motor
+python-dotenv
+pydantic
+aiokafka
+python-multipart

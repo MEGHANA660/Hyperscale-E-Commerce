@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # Infrastructure
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hyperscale
+    ports:
+      - "5432:5432"
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672" # Management UI
+
+  # Microservices
+  main-service:
+    build:
+      context: ./services/main-service
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - USER_SERVICE_URL=http://user-service:8000
+      - PRODUCT_SERVICE_URL=http://product-service:8000
+      - MONGO_URI=mongodb://mongodb:27017
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "5001:8000"
+    depends_on:
+      - postgres
+      - mongodb
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
+      - MONGO_URI=mongodb://mongodb:27017
+
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    ports:
+      - "5002:8000"
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+    environment:
+      - PRODUCT_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
+      - MONGO_URI=mongodb://mongodb:27017
+      - REDIS_HOST=redis
+
+  inventory-service:
+    build:
+      context: ./services/inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "5003:8000"
+    depends_on:
+      - postgres
+      - mongodb
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
+      - MONGO_URI=mongodb://mongodb:27017
+
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    ports:
+      - "5004:8000"
+    depends_on:
+      - postgres
+      - mongodb
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
+      - MONGO_URI=mongodb://mongodb:27017
+
+  recommendation-service:
+    build:
+      context: ./services/recommendation-service
+      dockerfile: Dockerfile
+    ports:
+      - "5005:8000"
+    depends_on:
+      - redis
+      - mongodb
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    ports:
+      - "5006:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    ports:
+      - "5007:8000"
+    depends_on:
+      - rabbitmq
+      - mongodb
+    environment:
+      - RABBITMQ_URL=pyamqp://guest:guest@rabbitmq:5672//
+      - MONGO_URI=mongodb://mongodb:27017
+
+  notification-worker:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    command: celery -A app.worker.celery_app worker --loglevel=info
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_URL=pyamqp://guest:guest@rabbitmq:5672//

@@ -1,0 +1,1 @@
+﻿# Core Logger module
