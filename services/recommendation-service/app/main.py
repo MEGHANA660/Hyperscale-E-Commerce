@@ -1,79 +1,96 @@
-from fastapi import FastAPI
-import os
-import json
-import asyncio
-import logging
+"""
+recommendation-service/app/main.py
+Graph BFS powered product recommendation engine.
+"""
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from dsa.graph_bfs import ProductGraph
 
-from shared.dsa.graph_bfs import ProductGraph
-from shared.dsa.discount_dp import optimize_discounts
-from shared.core_logger.logger import CoreLogger
+app = FastAPI(
+    title="HyperScale Recommendation Service",
+    description="Graph BFS powered product recommendation engine",
+    version="1.0.0",
+)
 
-app = FastAPI(title="HyperScale Recommendation Service")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Initialize DSA: Graph (Relationships)
-relationship_graph = ProductGraph()
+# Initialize product relationship graph
+product_graph = ProductGraph()
+_graph_operations = 0
 
-# Initialize Core Logger
-logger = CoreLogger("recommendation-service")
+# Seed with some initial relationships
+INITIAL_EDGES = [
+    (1, 2), (1, 3), (2, 4), (3, 5), (4, 6), (5, 6),
+    (7, 8), (7, 9), (8, 10), (9, 10), (10, 11), (11, 12),
+    (1, 7), (2, 8), (3, 9), (4, 10),
+]
+for p1, p2 in INITIAL_EDGES:
+    product_graph.add_edge(p1, p2)
 
-# Kafka Config (optional)
-KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_SERVERS", "localhost:9092")
-_kafka_available = False
 
-try:
-    from aiokafka import AIOKafkaConsumer
-    _kafka_available = True
-except ImportError:
-    logging.getLogger("recommendation-service").warning("aiokafka not installed, Kafka consumer disabled")
+class EdgeRequest(BaseModel):
+    product_id_1: int
+    product_id_2: int
 
-@app.on_event("startup")
-async def startup_event():
-    await logger.connect()
-    await logger.info("Recommendation Service started.")
-    if _kafka_available:
-        asyncio.create_task(order_consumer())
-
-async def order_consumer():
-    """Consume orders to build the recommendation graph."""
-    try:
-        consumer = AIOKafkaConsumer(
-            "ORDER_CREATED",
-            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-            group_id="rec-group"
-        )
-        await consumer.start()
-    except Exception as e:
-        await logger.warning(f"Could not connect to Kafka: {e}")
-        return
-
-    try:
-        async for msg in consumer:
-            order_data = json.loads(msg.value.decode("utf-8"))
-            await logger.info(f"Updated recommendation graph with order: {order_data['id']}")
-    finally:
-        await consumer.stop()
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "recommendation-service"}
 
-@app.get("/recommendations/{product_id}")
-async def get_recommendations(product_id: int, depth: int = 2):
-    """
-    Get related products using Graph BFS (DSA #4).
-    """
-    recs = relationship_graph.get_recommendations(product_id, depth)
-    return {"product_id": product_id, "recommendations": recs}
 
-@app.post("/discounts/optimize")
-async def optimize_discount_allocation(budget: int, discount_options: list):
+@app.get("/recommendations/{product_id}", tags=["Recommendations"])
+def get_recommendations(product_id: int, depth: int = 2):
     """
-    Optimize discounts using Dynamic Programming (DSA #7).
-    discount_options: list of [conversion_inc, cost]
+    Get product recommendations via Graph BFS.
+    Traverses the product co-purchase graph at given depth.
+    DSA: Graph BFS — O(V+E) complexity.
     """
-    max_inc, indices = optimize_discounts(discount_options, budget)
+    global _graph_operations
+    _graph_operations += 1
+    rec_ids = product_graph.get_recommendations(product_id, depth=min(depth, 3))
     return {
-        "max_conversion_increase": max_inc,
-        "selected_discounts": indices,
-        "budget_used": sum(discount_options[i][1] for i in indices)
+        "product_id": product_id,
+        "depth": depth,
+        "recommended_ids": rec_ids,
+        "count": len(rec_ids),
+        "dsa": "Graph BFS",
+        "complexity": "O(V+E)",
+    }
+
+
+@app.post("/graph/edge", tags=["Graph Management"])
+def add_product_edge(payload: EdgeRequest):
+    """
+    Add a co-purchase relationship between two products.
+    Creates a bidirectional edge in the product graph.
+    """
+    global _graph_operations
+    product_graph.add_edge(payload.product_id_1, payload.product_id_2)
+    _graph_operations += 1
+    return {
+        "message": f"Edge added: {payload.product_id_1} ↔ {payload.product_id_2}",
+        "dsa": "Graph (Adjacency List)",
+    }
+
+
+@app.get("/graph/stats", tags=["DSA Metrics"])
+def get_graph_stats():
+    """Graph statistics for DSA metrics dashboard."""
+    num_nodes = len(product_graph.graph)
+    num_edges = sum(len(v) for v in product_graph.graph.values()) // 2
+    return {
+        "dsa": "Graph BFS",
+        "nodes": num_nodes,
+        "edges": num_edges,
+        "total_operations": _graph_operations,
+        "description": "Adjacency list graph — BFS finds recommendations in O(V+E)",
+        "use_case": "Customers also bought — depth-2 BFS traversal",
     }

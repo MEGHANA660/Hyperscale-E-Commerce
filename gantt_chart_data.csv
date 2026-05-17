@@ -1,0 +1,29 @@
+Task,Start,End,Duration_weeks,Phase
+Literature Review,2025-01-06,2025-01-19,2,Planning
+Requirement Analysis,2025-01-20,2025-01-26,1,Planning
+System Design,2025-01-27,2025-02-09,2,Design
+Database Schema Design,2025-02-03,2025-02-09,1,Design
+Docker & Infrastructure Setup,2025-02-10,2025-02-16,1,Infrastructure
+LRU Cache Implementation,2025-02-17,2025-02-23,1,DSA Implementation
+Trie Implementation,2025-02-17,2025-02-23,1,DSA Implementation
+Bloom Filter Implementation,2025-02-24,2025-03-02,1,DSA Implementation
+Graph BFS Implementation,2025-02-24,2025-03-02,1,DSA Implementation
+Min Heap Implementation,2025-03-03,2025-03-09,1,DSA Implementation
+Segment Tree Implementation,2025-03-03,2025-03-09,1,DSA Implementation
+Dynamic Programming Implementation,2025-03-10,2025-03-16,1,DSA Implementation
+User Service Development,2025-03-10,2025-03-23,2,Microservices
+Product Service Development,2025-03-17,2025-03-30,2,Microservices
+Order Service Development,2025-03-24,2025-04-06,2,Microservices
+Recommendation Service Development,2025-03-31,2025-04-13,2,Microservices
+Analytics Service Development,2025-04-07,2025-04-20,2,Microservices
+PostgreSQL Database Integration,2025-04-07,2025-04-13,1,Integration
+Redis Cache Integration,2025-04-14,2025-04-20,1,Integration
+Elasticsearch Integration,2025-04-14,2025-04-20,1,Integration
+React Frontend Development,2025-04-21,2025-05-04,2,Frontend
+Frontend API Integration,2025-05-05,2025-05-11,1,Frontend
+Unit Test Development,2025-05-05,2025-05-11,1,Testing
+Performance Benchmark Tests,2025-05-12,2025-05-18,1,Testing
+System Integration Testing,2025-05-12,2025-05-18,1,Testing
+Documentation Writing,2025-05-05,2025-05-18,2,Documentation
+Demo Preparation,2025-05-12,2025-05-18,1,Documentation
+Final Review & Submission,2025-05-19,2025-05-25,1,Submission
