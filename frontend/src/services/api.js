@@ -137,18 +137,32 @@ export const analyticsApi = {
 // ─── Mock Data (fallback when backend is offline) ──────────────────────────────
 export const MOCK = {
   products: [
-    { id: 1, name: 'MacBook Pro 16"', price: 2499.99, category: 'Laptops', rating: 4.8, stock: 50, image_url: null },
-    { id: 2, name: 'iPhone 15 Pro Max', price: 1199.99, category: 'Smartphones', rating: 4.9, stock: 120, image_url: null },
-    { id: 3, name: 'Sony WH-1000XM5', price: 349.99, category: 'Audio', rating: 4.7, stock: 200, image_url: null },
-    { id: 4, name: 'iPad Pro 12.9"', price: 1099.99, category: 'Tablets', rating: 4.6, stock: 80, image_url: null },
-    { id: 5, name: 'Samsung Galaxy S24 Ultra', price: 1299.99, category: 'Smartphones', rating: 4.7, stock: 90, image_url: null },
-    { id: 6, name: 'Dell XPS 15', price: 1899.99, category: 'Laptops', rating: 4.5, stock: 40, image_url: null },
-    { id: 7, name: 'AirPods Pro 2', price: 249.99, category: 'Audio', rating: 4.8, stock: 300, image_url: null },
-    { id: 8, name: 'Apple Watch Ultra 2', price: 799.99, category: 'Wearables', rating: 4.7, stock: 60, image_url: null },
-    { id: 9, name: 'NVIDIA RTX 4090', price: 1599.99, category: 'GPU', rating: 4.9, stock: 15, image_url: null },
-    { id: 10, name: 'LG OLED C3 65"', price: 1799.99, category: 'TVs', rating: 4.8, stock: 25, image_url: null },
-    { id: 11, name: 'Logitech MX Master 3S', price: 99.99, category: 'Peripherals', rating: 4.7, stock: 400, image_url: null },
-    { id: 12, name: 'Keychron Q1 Pro', price: 199.99, category: 'Peripherals', rating: 4.6, stock: 150, image_url: null },
+    // Laptops
+    { id: 1,  name: 'MacBook Pro 16"',         price: 129999, originalPrice: 149999, category: 'Laptops',     rating: 4.8, stock: 50,  image_url: null },
+    { id: 6,  name: 'Dell XPS 15',             price: 99999,  originalPrice: 119999, category: 'Laptops',     rating: 4.5, stock: 40,  image_url: null },
+    // Phones
+    { id: 2,  name: 'iPhone 15 Pro',           price: 79999,  originalPrice: 89999,  category: 'Phones',      rating: 4.9, stock: 120, image_url: null },
+    { id: 4,  name: 'iPad Air',                price: 54999,  originalPrice: 64999,  category: 'Phones',      rating: 4.6, stock: 80,  image_url: null },
+    // Electronics
+    { id: 3,  name: 'Sony Headphones',         price: 14999,  originalPrice: 19999,  category: 'Electronics', rating: 4.7, stock: 200, image_url: null },
+    { id: 7,  name: 'Apple Watch Ultra 2',     price: 69999,  originalPrice: 79999,  category: 'Electronics', rating: 4.7, stock: 60,  image_url: null },
+    { id: 8,  name: 'AirPods Pro 2',           price: 19999,  originalPrice: 24999,  category: 'Electronics', rating: 4.8, stock: 300, image_url: null },
+    { id: 9,  name: 'Logitech MX Master 3S',   price: 7999,   originalPrice: 9999,   category: 'Electronics', rating: 4.7, stock: 400, image_url: null },
+    { id: 10, name: 'Keychron Q1 Pro',         price: 15999,  originalPrice: 19999,  category: 'Electronics', rating: 4.6, stock: 150, image_url: null },
+    { id: 11, name: 'Dell Monitor 27"',        price: 24999,  originalPrice: 29999,  category: 'Electronics', rating: 4.5, stock: 100, image_url: null },
+    { id: 12, name: 'HP Laser Printer',        price: 12999,  originalPrice: 15999,  category: 'Electronics', rating: 4.4, stock: 75,  image_url: null },
+    // Home & Living
+    { id: 5,  name: 'Samsung TV 55"',          price: 49999,  originalPrice: 59999,  category: 'Home',        rating: 4.8, stock: 25,  image_url: null },
+    { id: 13, name: 'Dyson V15 Detect',        price: 42999,  originalPrice: 52999,  category: 'Home',        rating: 4.7, stock: 35,  image_url: null },
+    { id: 14, name: 'Instant Pot Duo 7-in-1',  price: 8999,   originalPrice: 11999,  category: 'Home',        rating: 4.6, stock: 90,  image_url: null },
+    // Fashion
+    { id: 15, name: 'Merino Wool Crewneck',    price: 4999,   originalPrice: 6999,   category: 'Fashion',     rating: 4.7, stock: 180, image_url: null },
+    { id: 16, name: 'Premium Leather Jacket',  price: 12999,  originalPrice: 17999,  category: 'Fashion',     rating: 4.5, stock: 45,  image_url: null },
+    { id: 17, name: 'Slim Fit Linen Trousers', price: 2999,   originalPrice: 3999,   category: 'Fashion',     rating: 4.4, stock: 220, image_url: null },
+    { id: 18, name: 'Classic Canvas Sneakers', price: 3499,   originalPrice: 4499,   category: 'Fashion',     rating: 4.6, stock: 310, image_url: null },
+    // Beauty
+    { id: 19, name: 'Vitamin C Brightening Serum', price: 1299, originalPrice: 1799, category: 'Beauty',      rating: 4.8, stock: 500, image_url: null },
+    { id: 20, name: 'Luxury Rose Eau de Parfum',   price: 3999, originalPrice: 5499, category: 'Beauty',      rating: 4.7, stock: 140, image_url: null },
   ],
 
   searchResults: (query) => {

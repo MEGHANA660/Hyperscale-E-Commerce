@@ -1,209 +1,277 @@
+import React, { useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Zap, Search, BarChart3, ShoppingCart, ArrowRight, CheckCircle, Database, Cpu } from 'lucide-react'
-import DsaBadge from '../components/DsaBadge'
+import { ArrowRight, Truck, RotateCcw, ShieldCheck, Sparkles, Star } from 'lucide-react'
+import { MOCK } from '../services/api'
+import ProductCard from '../components/ProductCard'
 
-const DSA_IMPLEMENTATIONS = [
-  {
-    name: 'LRU Cache',
-    description: 'O(1) get/put for user sessions and product detail caching',
-    color: 'blue',
-    improvement: '100x faster',
-    service: 'User Service',
-    complexity: 'O(1)',
-    icon: '⚡',
-  },
-  {
-    name: 'Trie (Prefix Tree)',
-    description: 'Instant autocomplete with O(m) search vs O(n) SQL LIKE',
-    color: 'purple',
-    improvement: '50x faster',
-    service: 'Product Service',
-    complexity: 'O(m)',
-    icon: '🔍',
-  },
-  {
-    name: 'Bloom Filter',
-    description: 'Probabilistic existence check — blocks 95%+ wasteful DB queries',
-    color: 'green',
-    improvement: '95% query reduction',
-    service: 'Product Service',
-    complexity: 'O(k)',
-    icon: '🛡️',
-  },
-  {
-    name: 'Graph BFS',
-    description: '"Customers also bought" via Breadth-First Search on product graph',
-    color: 'yellow',
-    improvement: 'Intelligent recs',
-    service: 'Recommendation Service',
-    complexity: 'O(V+E)',
-    icon: '🕸️',
-  },
-  {
-    name: 'Min Heap',
-    description: 'Priority order queue — Express > Premium > Standard processing',
-    color: 'red',
-    improvement: 'O(log n) scheduling',
-    service: 'Order Service',
-    complexity: 'O(log n)',
-    icon: '📦',
-  },
-  {
-    name: 'Segment Tree',
-    description: 'Range analytics queries in O(log n) over thousands of data points',
-    color: 'cyan',
-    improvement: 'O(log n) range query',
-    service: 'Analytics Service',
-    complexity: 'O(log n)',
-    icon: '📊',
-  },
-  {
-    name: 'Dynamic Programming',
-    description: '0/1 Knapsack for optimal discount combinations to maximize conversion',
-    color: 'pink',
-    improvement: 'Optimal discount strategy',
-    service: 'Analytics Service',
-    complexity: 'O(n·W)',
-    icon: '💡',
-  },
+const CATEGORIES = [
+  { name: 'Fashion',         count: '820 styles',    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=600&q=80',  query: 'Fashion' },
+  { name: 'Electronics',    count: '412 products',  image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80',  query: 'Electronics' },
+  { name: 'Home & Living',  count: '642 products',  image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',  query: 'Home' },
+  { name: 'Beauty',         count: '928 essentials', image: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=600&q=80', query: 'Beauty' },
+  { name: 'Laptops',        count: '180 models',    image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',  query: 'Laptops' },
+  { name: 'Phones',         count: '340 devices',   image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=600&q=80',  query: 'Phones' },
 ]
 
-const PAGES = [
+const TESTIMONIALS = [
   {
-    path: '/search',
-    title: 'Product Search',
-    subtitle: 'Trie Autocomplete + Bloom Filter Demo',
-    icon: Search,
-    color: 'from-violet-600 to-blue-600',
-    dsas: ['Trie', 'Bloom Filter'],
+    quote: 'Clean, fast, and beautifully organized. The aesthetic is genuinely second to none — I find myself browsing just to enjoy the UI.',
+    author: 'Charlotte M.',
+    role: 'Design Lead, Figma',
+    initials: 'CM',
+    rating: 5,
+    avatarBg: 'bg-violet-100 text-violet-700',
   },
   {
-    path: '/performance',
-    title: 'Performance Dashboard',
-    subtitle: 'All 7 DSA metrics in real-time',
-    icon: BarChart3,
-    color: 'from-emerald-600 to-cyan-600',
-    dsas: ['All 7 DSAs'],
+    quote: 'The attention to detail in packaging and delivery speeds is spectacular. Express delivery actually arrived in 90 minutes.',
+    author: 'Julian K.',
+    role: 'Senior Engineer, Google',
+    initials: 'JK',
+    rating: 5,
+    avatarBg: 'bg-blue-100 text-blue-700',
   },
   {
-    path: '/cart',
-    title: 'Shopping Cart',
-    subtitle: 'Min Heap orders + DP discounts',
-    icon: ShoppingCart,
-    color: 'from-orange-600 to-red-600',
-    dsas: ['Min Heap', 'DP'],
+    quote: 'A platform that actually respects simplicity. Product quality is exceptional and the return process was genuinely hassle-free.',
+    author: 'Sophie V.',
+    role: 'Architect & Founder',
+    initials: 'SV',
+    rating: 5,
+    avatarBg: 'bg-emerald-100 text-emerald-700',
   },
 ]
 
 export default function Home() {
+  const categoriesRef = useRef(null)
+
+  const scrollToCategories = (e) => {
+    e.preventDefault()
+    categoriesRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const bestsellers  = MOCK.products.filter(p => [1, 2, 3, 7].includes(p.id))
+  const recommended  = MOCK.products.filter(p => [15, 19, 8, 13].includes(p.id))
+
   return (
-    <div className="space-y-16 animate-in">
-      {/* Hero */}
-      <section className="text-center py-16 relative">
-        {/* Background Glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full
-                          bg-primary-600/10 blur-3xl" />
-          <div className="absolute top-20 left-1/3 w-64 h-64 rounded-full
-                          bg-accent-600/8 blur-3xl" />
-        </div>
+    <div className="space-y-14 sm:space-y-20 animate-in">
 
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10
-                          border border-primary-500/30 text-primary-300 text-sm font-medium mb-6">
-            <Cpu size={14} />
-            Phase 1 — 7 DSA Implementations Active
+      {/* ─── 1. HERO SECTION ─────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-[32px] bg-[#e8e8e0] border border-slate-200/40">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 items-center gap-8 p-8 sm:p-12 lg:p-16">
+          {/* Hero copy */}
+          <div className="space-y-7 text-left z-10">
+            <div className="inline-flex items-center gap-1.5 bg-white/80 border border-slate-200/60 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-700">
+              <Sparkles size={11} className="text-amber-500 fill-amber-500" />
+              Summer Edit — 2026
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-[0.92] max-w-lg">
+              Everyday essentials,<br />exceptionally made.
+            </h1>
+            <p className="text-sm sm:text-base text-slate-600 max-w-md leading-relaxed font-medium">
+              Discover 50,000+ products across fashion, electronics, beauty, and home. Hand-picked quality, fairly priced, delivered fast.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link to="/search" className="btn-pill-dark inline-flex items-center gap-2 group text-sm px-6 py-3">
+                Shop the edit <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+              <a href="#categories" onClick={scrollToCategories} className="btn-pill-light text-sm px-6 py-3">
+                Browse categories
+              </a>
+            </div>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl font-black mb-4">
-            <span className="text-white">HyperScale</span>{' '}
-            <span className="gradient-text">Commerce</span>
-          </h1>
-
-          <p className="text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-            A production-ready microservices e-commerce platform powered by{' '}
-            <strong className="text-white">7 DSA implementations</strong> to achieve
-            real measurable performance improvements.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/search" id="hero-search-btn" className="btn-primary flex items-center gap-2 justify-center">
-              <Search size={18} />
-              Try Live Search Demo
-              <ArrowRight size={16} />
-            </Link>
-            <Link to="/performance" id="hero-perf-btn" className="btn-secondary flex items-center gap-2 justify-center">
-              <BarChart3 size={18} />
-              View Performance Stats
-            </Link>
+          {/* Hero image */}
+          <div className="relative aspect-[4/3] lg:aspect-square w-full rounded-[24px] overflow-hidden border border-white/60 shadow-lg">
+            <img
+              src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80"
+              alt="Premium fashion lifestyle curated edit"
+              className="w-full h-full object-cover"
+              loading="eager"
+            />
           </div>
         </div>
       </section>
 
-      {/* Stats Bar */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* ─── 2. TRUST FEATURES BAR ───────────────────────────────────────── */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'DSA Implementations', value: '7', icon: Cpu },
-          { label: 'Microservices', value: '5', icon: Database },
-          { label: 'API Endpoints', value: '28+', icon: Zap },
-          { label: 'Max Performance Gain', value: '100×', icon: BarChart3 },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="stat-card text-center">
-            <Icon size={20} className="text-primary-400 mx-auto mb-2" />
-            <div className="text-3xl font-black gradient-text">{value}</div>
-            <div className="text-xs text-slate-400">{label}</div>
-          </div>
-        ))}
+          { label: 'Free 2-day shipping', detail: 'On orders over ₹5,000', icon: Truck },
+          { label: '60-day returns',      detail: 'No questions asked',     icon: RotateCcw },
+          { label: 'Buyer protection',   detail: 'Every purchase secured',  icon: ShieldCheck },
+          { label: 'Member rewards',     detail: 'Earn 2× points always',   icon: Sparkles },
+        ].map((feat, idx) => {
+          const Icon = feat.icon
+          return (
+            <div key={idx} className="flex gap-3.5 items-center bg-white border border-slate-200/60 rounded-2xl p-4 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
+                <Icon size={17} />
+              </div>
+              <div>
+                <p className="text-xs font-extrabold text-slate-900 tracking-tight">{feat.label}</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{feat.detail}</p>
+              </div>
+            </div>
+          )
+        })}
       </section>
 
-      {/* Quick Nav Pages */}
-      <section>
-        <h2 className="section-title">Explore Features</h2>
-        <p className="section-subtitle">Each page demonstrates live DSA algorithms</p>
-        <div className="grid sm:grid-cols-3 gap-4">
-          {PAGES.map(({ path, title, subtitle, icon: Icon, color, dsas }) => (
-            <Link
-              key={path}
-              to={path}
-              id={`home-nav-${title.toLowerCase().replace(/\s/g,'-')}`}
-              className="glass-card-hover p-6 group"
+      {/* ─── 3. SHOP BY CATEGORY ─────────────────────────────────────────── */}
+      <section id="categories" ref={categoriesRef} className="space-y-6">
+        <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Shop by category</h2>
+            <p className="text-slate-400 text-xs font-medium mt-1">20,000+ items across 6 curated collections</p>
+          </div>
+          <Link to="/search" className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors">
+            All categories <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {CATEGORIES.map((cat) => (
+            <Link 
+              key={cat.name} 
+              to={`/search?category=${cat.query}`}
+              className="group relative aspect-[3/4] rounded-[20px] overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-lg transition-all duration-300"
             >
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center mb-4
-                               group-hover:scale-110 transition-transform duration-300`}>
-                <Icon size={24} className="text-white" />
-              </div>
-              <h3 className="text-white font-bold text-lg mb-1 group-hover:text-primary-300 transition-colors">{title}</h3>
-              <p className="text-slate-400 text-sm mb-4">{subtitle}</p>
-              <div className="flex flex-wrap gap-2">
-                {dsas.map(d => (
-                  <span key={d} className="dsa-tag">{d}</span>
-                ))}
+              <img 
+                src={cat.image} 
+                alt={cat.name} 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-end p-5 sm:p-6 text-left transition-opacity duration-300">
+                <h3 className="text-white text-base sm:text-lg font-black tracking-tight leading-tight">{cat.name}</h3>
+                <span className="inline-block w-fit px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider text-slate-900 bg-white/95 backdrop-blur-xs mt-2 shadow-xs transition-colors duration-300 group-hover:bg-slate-900 group-hover:text-white">
+                  {cat.count}
+                </span>
               </div>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* DSA Implementation Grid */}
-      <section>
-        <h2 className="section-title">7 DSA Implementations</h2>
-        <p className="section-subtitle">Production-grade algorithms powering every service</p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {DSA_IMPLEMENTATIONS.map((dsa) => (
-            <div key={dsa.name} className="glass-card p-5 hover:border-white/20 transition-all duration-300 group">
-              <div className="text-3xl mb-3">{dsa.icon}</div>
-              <div className="mb-2">
-                <DsaBadge name={dsa.name} color={dsa.color} />
+      {/* ─── 4. BESTSELLERS ──────────────────────────────────────────────── */}
+      <section className="space-y-6">
+        <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Trending this week</h2>
+            <p className="text-slate-400 text-xs font-medium mt-1">Our most-loved picks right now</p>
+          </div>
+          <Link to="/search" className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors">
+            View all <ArrowRight size={13} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {bestsellers.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 5. PREMIUM PROMO BANNER ─────────────────────────────────────── */}
+      <section className="relative overflow-hidden rounded-[28px] sm:rounded-[36px] border border-slate-800 shadow-2xl shadow-indigo-950/45" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)' }}>
+        {/* Background texture pattern */}
+        <div className="absolute inset-0 opacity-[0.04]" style={{
+          backgroundImage: `radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 50%, white 1px, transparent 1px)`,
+          backgroundSize: '60px 60px'
+        }} />
+
+        {/* Decorative image */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 sm:w-2/5 opacity-30 sm:opacity-40">
+          <img
+            src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80"
+            alt=""
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0f172a] via-transparent to-transparent" />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-8 sm:px-12 lg:px-16 py-14 sm:py-20">
+          <div className="max-w-lg text-left space-y-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-400">Limited Drop — Ends Sunday</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                Knapsack DP Optimized Coupon
+              </span>
+            </div>
+            
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-[1.0]">
+              Up to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">40% off</span> select bestsellers.
+            </h2>
+            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-sm">
+              Premium electronics, fashion, and home essentials — curated for the discerning shopper. Limited quantities available.
+            </p>
+            
+            <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-800 w-fit px-3.5 py-1.5 rounded-xl shadow-inner">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Use Code:</span>
+              <span className="font-mono text-xs font-black text-amber-400 tracking-wider">AETERNA40</span>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link to="/search" className="inline-flex items-center gap-2 bg-white text-slate-900 font-bold text-xs sm:text-sm px-6 py-2.5 rounded-full hover:bg-slate-100 hover:text-slate-950 transition-all hover:-translate-y-0.5 shadow-lg group">
+                Shop deals now <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+              <Link to="/search?category=Electronics" className="inline-flex items-center gap-2 border border-white/20 text-white font-semibold text-xs sm:text-sm px-6 py-2.5 rounded-full hover:bg-white/10 transition-all hover:-translate-y-0.5">
+                Electronics sale
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 6. RECOMMENDED PICKS ────────────────────────────────────────── */}
+      <section className="space-y-6">
+        <div className="flex items-end justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Picked for you</h2>
+            <p className="text-slate-400 text-xs font-medium mt-1">Fresh arrivals across Fashion and Beauty</p>
+          </div>
+          <Link to="/search" className="text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1 transition-colors">
+            Refresh <ArrowRight size={13} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {recommended.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      {/* ─── 7. TESTIMONIALS ─────────────────────────────────────────────── */}
+      <section className="space-y-8">
+        <div className="text-left border-b border-slate-200 pb-4">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">What our members say</h2>
+          <p className="text-slate-400 text-xs font-medium mt-1">Trusted by 50,000+ shoppers across India</p>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-5">
+          {TESTIMONIALS.map((item, idx) => (
+            <div
+              key={idx}
+              className="bg-white border border-slate-200/60 rounded-[24px] p-6 shadow-xs hover:shadow-md transition-all duration-300 hover:-translate-y-1 flex flex-col gap-4 text-left"
+            >
+              {/* Stars */}
+              <div className="flex items-center gap-0.5">
+                {[...Array(item.rating)].map((_, i) => (
+                  <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
+                ))}
               </div>
-              <p className="text-slate-400 text-sm mb-3 leading-relaxed">{dsa.description}</p>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500">{dsa.service}</span>
-                <span className="font-mono bg-dark-800 text-emerald-400 px-2 py-0.5 rounded border border-white/5">{dsa.complexity}</span>
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle size={12} className="text-emerald-400" />
-                  <span className="text-xs text-emerald-400 font-semibold">{dsa.improvement}</span>
+
+              {/* Quote */}
+              <p className="text-sm text-slate-700 leading-relaxed font-medium flex-1">
+                "{item.quote}"
+              </p>
+
+              {/* Author */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${item.avatarBg}`}>
+                  {item.initials}
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-800">{item.author}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{item.role}</p>
                 </div>
               </div>
             </div>
@@ -211,43 +279,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Architecture Overview */}
-      <section>
-        <h2 className="section-title">System Architecture</h2>
-        <p className="section-subtitle">Microservices communicating independently</p>
-        <div className="glass-card p-6">
-          <pre className="code-block text-xs leading-relaxed overflow-x-auto">{`
-┌─────────────────────────────────────────────────────────────┐
-│                    React Frontend (Vite)                     │
-│              Tailwind CSS + React Router                     │
-└────────────┬────────────────────────────────────────────────┘
-             │  HTTP REST API calls
-   ┌──────────┴───────────────────────────────────────────┐
-   │                                                       │
-┌──▼──────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│ User Service│  │Product Svc  │  │ Order Service        │ │
-│ Port: 8002  │  │ Port: 8001  │  │ Port: 8003           │ │
-│ ⚡ LRU Cache│  │🔍 Trie      │  │ 📦 Min Heap          │ │
-│             │  │🛡️ BloomFltr │  │                      │ │
-└──────┬──────┘  └──────┬──────┘  └──────────┬───────────┘ │
-       │                │                     │             │
-   ┌───▼────────────────▼─────────────────────▼──────────┐  │
-   │                  PostgreSQL DB                       │  │
-   │          Shared relational data store                │  │
-   └──────────────────────────────────────────────────────┘  │
-                                                             │
-┌──────────────────────────┐  ┌───────────────────────────┐  │
-│  Recommendation Service  │  │  Analytics Service        │  │
-│  Port: 8004              │  │  Port: 8005               │  │
-│  🕸️  Graph BFS           │  │  📊 Segment Tree          │  │
-│                          │  │  💡 Dynamic Programming   │  │
-└──────────────────────────┘  └───────────────────────────┘  │
-                                                             │
-         Redis (Caching)  +  Elasticsearch (Search)          │
-└─────────────────────────────────────────────────────────────┘
-`}</pre>
-        </div>
-      </section>
     </div>
   )
 }

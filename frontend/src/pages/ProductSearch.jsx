@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Zap, Shield, Clock, Database, X, Info } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { SlidersHorizontal, Check, Star, ChevronDown } from 'lucide-react'
 import { MOCK } from '../services/api'
 import ProductCard from '../components/ProductCard'
-import DsaBadge from '../components/DsaBadge'
 
-// ── Trie client-side for offline demo ──────────────────────────
-class TrieNode { constructor() { this.children = {}; this.suggestions = [] } }
+// ── Trie search logic (preserved in background) ──────────────────────────────
+class TrieNode {
+  constructor() { this.children = {}; this.suggestions = [] }
+}
 class ClientTrie {
   constructor() { this.root = new TrieNode() }
   insert(word, id) {
@@ -25,177 +27,305 @@ class ClientTrie {
     return node.suggestions
   }
 }
-
-// Seed Trie from mock products
 const clientTrie = new ClientTrie()
 MOCK.products.forEach(p => {
   p.name.split(/\s+/).forEach(word => clientTrie.insert(word, p.id))
   clientTrie.insert(p.category, p.id)
 })
 
+// Skeleton loader
+const SearchSkeleton = () => (
+  <div className="animate-pulse flex flex-col bg-white rounded-[22px] border border-slate-200/50 shadow-sm overflow-hidden">
+    <div className="aspect-square bg-slate-150 w-full" />
+    <div className="p-4 space-y-3">
+      <div className="h-2 w-14 bg-slate-150 rounded" />
+      <div className="h-3.5 w-3/4 bg-slate-150 rounded" />
+      <div className="h-3 w-1/2 bg-slate-150 rounded" />
+      <div className="h-4 w-1/3 bg-slate-150 rounded" />
+    </div>
+  </div>
+)
+
+const CATEGORIES = ['All', 'Electronics', 'Laptops', 'Phones', 'Fashion', 'Beauty', 'Home']
+const PRICE_RANGES = [
+  { label: 'All Prices',          val: 'All' },
+  { label: 'Under ₹5,000',       val: 'under-5k' },
+  { label: '₹5,000 – ₹20,000',  val: '5k-20k' },
+  { label: '₹20,000 – ₹50,000', val: '20k-50k' },
+  { label: '₹50,000 – ₹1,00,000', val: '50k-100k' },
+  { label: 'Over ₹1,00,000',    val: 'over-100k' },
+]
+const RATINGS = [
+  { label: 'All Ratings',    val: 'All' },
+  { label: '4.8★ & above',  val: '4.8' },
+  { label: '4.6★ & above',  val: '4.6' },
+  { label: '4.5★ & above',  val: '4.5' },
+]
+const SORT_OPTIONS = [
+  { label: 'Relevance',     val: 'relevance' },
+  { label: 'Price: Low–High', val: 'price-asc' },
+  { label: 'Price: High–Low', val: 'price-desc' },
+  { label: 'Top Rated',     val: 'rating' },
+]
+
 export default function ProductSearch() {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState(MOCK.products)
-  const [suggestions, setSuggestions] = useState([])
-  const [searchMs, setSearchMs] = useState(null)
-  const [sqlMs, setSqlMs] = useState(null)
-  const [bloomBlocked, setBloomBlocked] = useState(0)
-  const [totalQueries, setTotalQueries] = useState(0)
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const inputRef = useRef(null)
-  const debounceRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [query, setQuery]                     = useState('')
+  const [results, setResults]                 = useState(MOCK.products)
+  const [loading, setLoading]                 = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [selectedCategory, setSelectedCategory]   = useState('All')
+  const [selectedPriceRange, setSelectedPriceRange] = useState('All')
+  const [selectedRating, setSelectedRating]         = useState('All')
+  const [sortBy, setSortBy]                         = useState('relevance')
 
-  const doSearch = useCallback((q) => {
-    if (!q.trim()) {
-      setResults(MOCK.products); setSuggestions([]); setSearchMs(null); setSqlMs(null); return
-    }
-    setTotalQueries(prev => prev + 1)
-    // Trie search timing
-    const trieStart = performance.now()
-    const ids = clientTrie.search(q)
-    const trieTime = ((performance.now() - trieStart) * 1000).toFixed(1)
-    // Simulate SQL overhead
-    const sqlTime = ((performance.now() - performance.now()) * 1000 + Math.random() * 3000 + 4000).toFixed(1)
-    setSearchMs(trieTime); setSqlMs(sqlTime)
+  const searchTimerRef = useRef(null)
 
-    const found = ids.length > 0
-      ? MOCK.products.filter(p => ids.includes(p.id))
-      : MOCK.products.filter(p =>
-          p.name.toLowerCase().includes(q.toLowerCase()) ||
-          p.category.toLowerCase().includes(q.toLowerCase()))
-    setResults(found)
+  useEffect(() => {
+    const qParam   = searchParams.get('q')        || ''
+    const catParam = searchParams.get('category') || 'All'
+    setQuery(qParam)
+    setSelectedCategory(catParam)
+    doSearch(qParam, catParam, selectedPriceRange, selectedRating, sortBy)
+  }, [searchParams])
 
-    const sugg = MOCK.products
-      .filter(p => p.name.toLowerCase().startsWith(q.toLowerCase()) || p.category.toLowerCase().startsWith(q.toLowerCase()))
-      .slice(0, 5).map(p => p.name)
-    setSuggestions(sugg)
-    setShowSuggestions(sugg.length > 0)
+  const doSearch = useCallback((q, cat, priceRange, ratingLimit, sort) => {
+    setLoading(true)
+    clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      let matched = MOCK.products
+
+      // Trie search
+      if (q.trim()) {
+        const t0 = performance.now()
+        const ids = clientTrie.search(q)
+        window.__lastTrieTime  = (performance.now() - t0).toFixed(4)
+        window.__lastQuery     = q
+        if (ids.length > 0) {
+          matched = MOCK.products.filter(p => ids.includes(p.id))
+        } else {
+          matched = MOCK.products.filter(p =>
+            p.name.toLowerCase().includes(q.toLowerCase()) ||
+            p.category.toLowerCase().includes(q.toLowerCase())
+          )
+        }
+      }
+
+      // Bloom filter telemetry
+      window.__bloomChecked = (window.__bloomChecked || 0) + 1
+      if (q.trim() && !MOCK.products.some(p => p.name.toLowerCase().includes(q.toLowerCase()))) {
+        window.__bloomBlocked = (window.__bloomBlocked || 0) + 1
+      }
+
+      // Category filter
+      if (cat && cat !== 'All') {
+        matched = matched.filter(p => p.category.toLowerCase() === cat.toLowerCase())
+      }
+
+      // Price filter
+      if (priceRange && priceRange !== 'All') {
+        if      (priceRange === 'under-5k')  matched = matched.filter(p => p.price < 5000)
+        else if (priceRange === '5k-20k')    matched = matched.filter(p => p.price >= 5000 && p.price < 20000)
+        else if (priceRange === '20k-50k')   matched = matched.filter(p => p.price >= 20000 && p.price <= 50000)
+        else if (priceRange === '50k-100k')  matched = matched.filter(p => p.price > 50000 && p.price <= 100000)
+        else if (priceRange === 'over-100k') matched = matched.filter(p => p.price > 100000)
+      }
+
+      // Rating filter
+      if (ratingLimit && ratingLimit !== 'All') {
+        matched = matched.filter(p => p.rating >= parseFloat(ratingLimit))
+      }
+
+      // Sort
+      if (sort === 'price-asc')  matched = [...matched].sort((a, b) => a.price - b.price)
+      if (sort === 'price-desc') matched = [...matched].sort((a, b) => b.price - a.price)
+      if (sort === 'rating')     matched = [...matched].sort((a, b) => b.rating - a.rating)
+
+      setResults(matched)
+      setLoading(false)
+    }, 350)
   }, [])
 
-  const handleChange = (e) => {
-    const val = e.target.value; setQuery(val)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(val), 120)
+  const applyFilters = (newCat, newPrice, newRating, newSort) => {
+    const params = {}
+    if (query.trim()) params.q = query.trim()
+    if (newCat && newCat !== 'All') params.category = newCat
+    setSearchParams(params)
+    doSearch(query, newCat, newPrice, newRating, newSort)
   }
 
-  const handleSuggestionClick = (s) => { setQuery(s); setShowSuggestions(false); doSearch(s) }
-  const clearSearch = () => { setQuery(''); setResults(MOCK.products); setSuggestions([]); setSearchMs(null); setSqlMs(null); setShowSuggestions(false) }
+  const clearAll = () => {
+    setSelectedCategory('All')
+    setSelectedPriceRange('All')
+    setSelectedRating('All')
+    setSortBy('relevance')
+    applyFilters('All', 'All', 'All', 'relevance')
+  }
 
-  const speedup = searchMs && sqlMs ? (parseFloat(sqlMs) / Math.max(parseFloat(searchMs), 0.01)).toFixed(0) : null
-  const bloomRate = totalQueries > 0 ? ((bloomBlocked / totalQueries) * 100).toFixed(1) : '0.0'
+  const hasActiveFilters = selectedCategory !== 'All' || selectedPriceRange !== 'All' || selectedRating !== 'All'
 
   return (
-    <div className="space-y-8 animate-in">
-      <div>
-        <div className="flex flex-wrap gap-2 mb-3">
-          <DsaBadge name="Trie Autocomplete" color="purple" description="O(m) prefix search" />
-          <DsaBadge name="Bloom Filter" color="green" description="Probabilistic query guard" />
-        </div>
-        <h1 className="text-3xl font-black text-white mb-2">Product Search</h1>
-        <p className="text-slate-400">Demonstrating Trie (50× faster autocomplete) and Bloom Filter (95% DB query reduction)</p>
-      </div>
+    <div className="space-y-6 animate-in text-left">
 
-      {/* Search Box */}
-      <div className="relative">
-        <div className="glass-card p-2 flex items-center gap-3">
-          <Search size={20} className="text-primary-400 ml-3 shrink-0" />
-          <input
-            ref={inputRef}
-            id="product-search-input"
-            type="text" value={query} onChange={handleChange}
-            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-            placeholder="Type to search... (try 'Mac', 'Sony', 'Apple')"
-            className="flex-1 bg-transparent outline-none text-white placeholder-slate-500 text-lg"
-            autoComplete="off"
-          />
-          {query && (
-            <button onClick={clearSearch} id="clear-search-btn"
-              className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-all">
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 z-50 mt-1 glass-card border border-white/20 overflow-hidden">
-            <div className="px-4 py-2 border-b border-white/10 flex items-center gap-2">
-              <Zap size={12} className="text-violet-400" />
-              <span className="text-xs text-violet-400 font-mono">Trie suggestions</span>
-            </div>
-            {suggestions.map((s, i) => (
-              <button key={i} id={`suggestion-${i}`} onClick={() => handleSuggestionClick(s)}
-                className="w-full text-left px-4 py-3 hover:bg-white/10 transition-colors text-slate-200 text-sm border-b border-white/5 last:border-0 flex items-center gap-2">
-                <Search size={13} className="text-slate-500" />
-                <span dangerouslySetInnerHTML={{
-                  __html: s.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
-                    '<mark class="bg-primary-500/30 text-primary-300 rounded px-0.5">$1</mark>')
-                }} />
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Performance Metrics */}
-      {query && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-in">
-          <div className="glass-card p-4">
-            <div className="flex items-center gap-2 mb-1"><Zap size={14} className="text-violet-400" /><span className="text-xs text-slate-400">Trie Search</span></div>
-            <div className="text-2xl font-bold text-white font-mono">{searchMs ?? '—'}μs</div>
-            <div className="text-xs text-violet-300 mt-1">O(m) complexity</div>
-          </div>
-          <div className="glass-card p-4">
-            <div className="flex items-center gap-2 mb-1"><Database size={14} className="text-slate-400" /><span className="text-xs text-slate-400">SQL LIKE (est.)</span></div>
-            <div className="text-2xl font-bold text-slate-400 font-mono">{sqlMs ?? '—'}μs</div>
-            <div className="text-xs text-slate-500 mt-1">O(n) linear scan</div>
-          </div>
-          <div className="glass-card p-4">
-            <div className="flex items-center gap-2 mb-1"><Clock size={14} className="text-emerald-400" /><span className="text-xs text-slate-400">Speed Gain</span></div>
-            <div className="text-2xl font-bold text-emerald-400 font-mono">{speedup ? `${speedup}×` : '—'}</div>
-            <div className="text-xs text-emerald-300 mt-1">Trie vs SQL</div>
-          </div>
-          <div className="glass-card p-4">
-            <div className="flex items-center gap-2 mb-1"><Shield size={14} className="text-green-400" /><span className="text-xs text-slate-400">Bloom Filtered</span></div>
-            <div className="text-2xl font-bold text-green-400 font-mono">{bloomRate}%</div>
-            <div className="text-xs text-green-300 mt-1">DB queries saved</div>
-          </div>
-        </div>
-      )}
-
-      {/* Info */}
-      <div className="glass-card p-5 border-l-4 border-violet-500 flex gap-3">
-        <Info size={18} className="text-violet-400 shrink-0 mt-0.5" />
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <p className="text-sm font-semibold text-violet-300 mb-1">How the Trie works</p>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Each character typed traverses a pre-built prefix tree from {MOCK.trieStats.words} indexed product terms.
-            Returns matching IDs in <strong className="text-white">O(m)</strong> time — vs SQL{' '}
-            <code className="text-primary-300">LIKE '%query%'</code> which scans O(n) rows.
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            {selectedCategory !== 'All' ? selectedCategory : 'All Products'}
+          </h1>
+          <p className="text-slate-400 text-xs font-medium mt-1">
+            {loading
+              ? 'Searching catalog…'
+              : `${results.length} product${results.length !== 1 ? 's' : ''}${query ? ` for "${query}"` : ''}`
+            }
           </p>
         </div>
+
+        {/* Sort dropdown */}
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-bold text-slate-500 whitespace-nowrap hidden sm:block">Sort by</label>
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={e => { setSortBy(e.target.value); applyFilters(selectedCategory, selectedPriceRange, selectedRating, e.target.value) }}
+              className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-800 cursor-pointer"
+            >
+              {SORT_OPTIONS.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+            </select>
+            <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+
+          {/* Mobile filter toggle */}
+          <button
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className={`lg:hidden flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all
+              ${hasActiveFilters ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'}`}
+          >
+            <SlidersHorizontal size={13} />
+            Filters{hasActiveFilters ? ` (${[selectedCategory !== 'All', selectedPriceRange !== 'All', selectedRating !== 'All'].filter(Boolean).length})` : ''}
+          </button>
+        </div>
       </div>
 
-      {/* Results */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">
-            {results.length} product{results.length !== 1 ? 's' : ''}
-            {query && <span className="text-slate-400 font-normal"> for "<span className="text-primary-300">{query}</span>"</span>}
-          </h2>
-          <div className="text-xs text-slate-500">Trie: {MOCK.trieStats.words} words · {MOCK.trieStats.nodes} nodes</div>
-        </div>
-        {results.length === 0 ? (
-          <div className="glass-card p-16 text-center">
-            <div className="text-5xl mb-4">🔍</div>
-            <p className="text-slate-400">No products found for "<span className="text-white">{query}</span>"</p>
+      {/* Main grid */}
+      <div className="flex gap-6 items-start">
+
+        {/* ── Sidebar ── */}
+        <aside className={`w-56 shrink-0 bg-white border border-slate-200/60 rounded-[20px] shadow-xs p-5 space-y-6 lg:block
+          ${showMobileFilters ? 'block fixed inset-0 z-50 w-72 h-screen overflow-y-auto rounded-none border-0' : 'hidden'}`}
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+              <SlidersHorizontal size={15} /> Filters
+            </h2>
+            <div className="flex items-center gap-2">
+              {hasActiveFilters && (
+                <button onClick={clearAll} className="text-[11px] font-bold text-slate-500 hover:text-slate-900 underline transition-colors">
+                  Clear all
+                </button>
+              )}
+              <button onClick={() => setShowMobileFilters(false)} className="lg:hidden text-slate-400 hover:text-slate-700 text-xs font-bold">✕</button>
+            </div>
           </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {results.map(p => <ProductCard key={p.id} product={p} />)}
+
+          {/* Category */}
+          <div className="space-y-2">
+            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Category</h3>
+            <div className="flex flex-col gap-0.5">
+              {CATEGORIES.map(cat => {
+                const isActive = selectedCategory.toLowerCase() === cat.toLowerCase()
+                const count = cat === 'All' ? MOCK.products.length : MOCK.products.filter(p => p.category.toLowerCase() === cat.toLowerCase()).length
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => { setSelectedCategory(cat); applyFilters(cat, selectedPriceRange, selectedRating, sortBy) }}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  >
+                    <span>{cat}</span>
+                    <span className={`text-[10px] font-semibold ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
+
+          {/* Price */}
+          <div className="space-y-2 border-t border-slate-100 pt-5">
+            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Price Range</h3>
+            <div className="flex flex-col gap-0.5">
+              {PRICE_RANGES.map(opt => {
+                const isActive = selectedPriceRange === opt.val
+                return (
+                  <button
+                    key={opt.val}
+                    onClick={() => { setSelectedPriceRange(opt.val); applyFilters(selectedCategory, opt.val, selectedRating, sortBy) }}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span>{opt.label}</span>
+                    {isActive && <Check size={11} />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Rating */}
+          <div className="space-y-2 border-t border-slate-100 pt-5">
+            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Customer Rating</h3>
+            <div className="flex flex-col gap-0.5">
+              {RATINGS.map(opt => {
+                const isActive = selectedRating === opt.val
+                return (
+                  <button
+                    key={opt.val}
+                    onClick={() => { setSelectedRating(opt.val); applyFilters(selectedCategory, selectedPriceRange, opt.val, sortBy) }}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span className="flex items-center gap-1">
+                      {opt.val !== 'All' && <Star size={10} className="text-amber-400 fill-amber-400" />}
+                      {opt.label}
+                    </span>
+                    {isActive && <Check size={11} />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile filter backdrop */}
+        {showMobileFilters && (
+          <div className="lg:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setShowMobileFilters(false)} />
         )}
-      </section>
+
+        {/* ── Products grid ── */}
+        <section className="flex-1 min-w-0">
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+              {[...Array(8)].map((_, i) => <SearchSkeleton key={i} />)}
+            </div>
+          ) : results.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-[24px] p-16 text-center shadow-xs space-y-3">
+              <div className="text-5xl select-none">🔍</div>
+              <h3 className="font-bold text-slate-800 text-base">No products found</h3>
+              <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
+                We couldn't find anything matching your criteria. Try adjusting your filters or search term.
+              </p>
+              <button onClick={clearAll} className="btn-pill-dark text-xs py-2 px-5 mt-2">Clear filters</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+              {results.map(p => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
+        </section>
+
+      </div>
     </div>
   )
 }
