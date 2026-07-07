@@ -124,26 +124,29 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-md border-b border-slate-200/80 transition-all duration-300">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 transition-all duration-300">
       {/* Top Announcement Bar */}
-      <div className="w-full bg-slate-900 text-white text-[10px] sm:text-xs py-1.5 px-4 text-center tracking-wide font-medium">
+      <div className="w-full bg-slate-900 text-white text-[10px] sm:text-xs py-1 px-4 text-center tracking-wide font-medium">
         Free 2-day shipping on orders over ₹5,000 · 60-day returns · Members earn 2× points
       </div>
 
       {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 h-16 sm:h-20 flex items-center justify-between gap-4">
+      <div className="max-w-full w-full mx-auto px-6 sm:px-12 lg:px-16 xl:px-24 h-14 sm:h-16 flex items-center justify-between gap-4">
         
         {/* Left Side: Brand Logo and Categories Links */}
-        <div className="flex items-center gap-6 sm:gap-10 shrink-0">
-          <Link to="/" className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter select-none flex items-center gap-2">
-            aeterna<span className="text-slate-900">.</span>
+        <div className="flex items-center gap-6 sm:gap-8 shrink-0">
+          <Link to="/" className="text-lg sm:text-xl font-black text-slate-900 tracking-tighter select-none flex items-center gap-1">
+            aeterna<span className="text-blue-600 font-extrabold">.</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-800">
-            <Link to="/search" className="hover:text-slate-500 transition-colors">Shop</Link>
-            <Link to="/search" className="hover:text-slate-500 transition-colors">New In</Link>
-            <Link to="/search?category=Fashion" className="hover:text-slate-500 transition-colors">Fashion</Link>
-            <Link to="/search?category=Electronics" className="hover:text-slate-500 transition-colors">Electronics</Link>
-            <Link to="/search?category=Beauty" className="hover:text-slate-500 transition-colors">Beauty</Link>
+          <nav className="hidden xl:flex items-center gap-5 text-[11px] font-bold uppercase tracking-wider text-slate-800">
+            <Link to="/search" className="hover:text-blue-600 transition-colors">Shop All</Link>
+            <Link to="/search?category=Fashion" className="hover:text-blue-600 transition-colors">Fashion</Link>
+            <Link to="/search?category=Electronics" className="hover:text-blue-600 transition-colors">Electronics</Link>
+            <Link to="/search?category=Laptops" className="hover:text-blue-600 transition-colors">Laptops</Link>
+            <Link to="/search?category=Phones" className="hover:text-blue-600 transition-colors">Phones</Link>
+            <Link to="/search?category=Home%20%26%20Living" className="hover:text-blue-600 transition-colors">Home & Living</Link>
+            <Link to="/search?category=Beauty" className="hover:text-blue-600 transition-colors">Beauty</Link>
+            <Link to="/search?category=Accessories" className="hover:text-blue-600 transition-colors">Accessories</Link>
           </nav>
         </div>
 
@@ -151,7 +154,7 @@ export default function Header() {
         <form 
           ref={containerRef}
           onSubmit={handleSearchSubmit} 
-          className="relative flex-1 max-w-md mx-auto hidden sm:block"
+          className="relative flex-1 max-w-sm mx-auto hidden md:block"
         >
           <div className="relative flex items-center">
             <input
@@ -159,35 +162,35 @@ export default function Header() {
               value={query}
               onChange={handleQueryChange}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              placeholder="Search for products, brands"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-4 pr-10 text-slate-800 text-xs font-medium focus:outline-none focus:border-slate-800 focus:bg-white transition-all placeholder-slate-400"
+              placeholder="Search products, categories..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-full py-1.5 pl-4 pr-10 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-850 focus:bg-white transition-all placeholder-slate-400"
             />
             {query && (
               <button
                 type="button"
                 onClick={clearSearch}
-                className="absolute right-10 p-1 text-slate-400 hover:text-slate-600"
+                className="absolute right-8 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
             <button
               type="submit"
-              className="absolute right-0 h-full px-3 text-slate-500 hover:text-slate-800 rounded-r-md"
+              className="absolute right-0 h-full px-3 text-slate-500 hover:text-slate-800 rounded-r-md cursor-pointer"
             >
-              <Search size={16} />
+              <Search size={14} />
             </button>
           </div>
 
           {/* Autocomplete Suggestions Dropdown */}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto z-50 py-1">
+            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-xl max-h-64 overflow-y-auto z-50 py-1">
               {suggestions.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => handleSuggestionClick(item)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-between border-b border-slate-100 last:border-b-0"
+                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-between border-b border-slate-100 last:border-b-0 cursor-pointer"
                 >
                   <span className="truncate">{item.name}</span>
                   <span className="text-[9px] text-slate-450 font-mono capitalize bg-slate-100 px-2 py-0.5 rounded">{item.category}</span>
@@ -202,30 +205,30 @@ export default function Header() {
           {/* Mobile Search Link */}
           <Link 
             to="/search" 
-            className="p-2 hover:text-slate-500 transition-colors sm:hidden"
+            className="p-1.5 hover:text-blue-600 transition-colors md:hidden"
             title="Search"
           >
-            <Search size={18} />
+            <Search size={16} />
           </Link>
 
           {/* User Icon -> Profile */}
           <Link 
             to="/profile" 
-            className="p-2 hover:text-slate-500 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
+            className="p-1.5 hover:text-blue-600 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
             title="User Profile"
           >
-            <User size={18} />
+            <User size={16} />
           </Link>
 
           {/* Heart Icon -> Wishlist */}
           <Link 
             to="/wishlist"
-            className="relative p-2 hover:text-slate-500 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
+            className="relative p-1.5 hover:text-blue-600 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
             title="Wishlist"
           >
-            <Heart size={18} className={wishlistCount > 0 ? 'text-red-500 fill-red-500 animate-pulse-subtle' : ''} />
+            <Heart size={16} className={wishlistCount > 0 ? 'text-red-500 fill-red-500 animate-pulse' : ''} />
             {wishlistCount > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
                 {wishlistCount}
               </span>
             )}
@@ -234,12 +237,12 @@ export default function Header() {
           {/* Cart Icon */}
           <Link 
             to="/cart" 
-            className="relative p-2 hover:text-slate-500 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
+            className="relative p-1.5 hover:text-blue-600 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
             title="Shopping Cart"
           >
-            <ShoppingCart size={18} />
+            <ShoppingCart size={16} />
             {count > 0 && (
-              <span className="absolute top-1 right-1 w-4 h-4 bg-slate-900 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-900 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
                 {count > 9 ? '9+' : count}
               </span>
             )}
@@ -248,29 +251,32 @@ export default function Header() {
           {/* Mobile Menu Toggle button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 hover:text-slate-500 hover:bg-slate-100/60 rounded-full md:hidden flex items-center justify-center"
+            className="p-1.5 hover:text-blue-600 hover:bg-slate-100/60 rounded-full xl:hidden flex items-center justify-center cursor-pointer"
             title="Toggle Menu"
           >
-            {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            {isMobileMenuOpen ? <X size={16} /> : <Menu size={16} />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu Dropdown Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur-md animate-in py-4 px-6 space-y-4 shadow-lg absolute left-0 right-0 top-full">
-          <nav className="flex flex-col gap-3.5 text-sm font-bold text-slate-800 text-left">
-            <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">Shop All</Link>
-            <Link to="/search?category=Fashion" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">Fashion</Link>
-            <Link to="/search?category=Electronics" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">Electronics</Link>
-            <Link to="/search?category=Beauty" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">Beauty</Link>
-            <Link to="/search?category=Home" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">Home & Living</Link>
+        <div className="xl:hidden border-t border-slate-200 bg-white/95 backdrop-blur-md animate-in py-4 px-6 space-y-4 shadow-lg absolute left-0 right-0 top-full">
+          <nav className="flex flex-col gap-3 text-sm font-bold text-slate-800 text-left">
+            <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Shop All</Link>
+            <Link to="/search?category=Fashion" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Fashion</Link>
+            <Link to="/search?category=Electronics" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Electronics</Link>
+            <Link to="/search?category=Laptops" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Laptops</Link>
+            <Link to="/search?category=Phones" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Phones</Link>
+            <Link to="/search?category=Home%20%26%20Living" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Home & Living</Link>
+            <Link to="/search?category=Beauty" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Beauty</Link>
+            <Link to="/search?category=Accessories" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">Accessories</Link>
             <hr className="border-slate-100" />
-            <Link to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors flex items-center justify-between">
+            <Link to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors flex items-center justify-between">
               <span>My Wishlist</span>
               {wishlistCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">{wishlistCount}</span>}
             </Link>
-            <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-slate-500 transition-colors">My Account</Link>
+            <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">My Account</Link>
           </nav>
         </div>
       )}

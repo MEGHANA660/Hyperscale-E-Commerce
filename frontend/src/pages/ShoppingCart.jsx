@@ -303,7 +303,7 @@ export default function ShoppingCart() {
         {step === 1 && (
           <div className="lg:col-span-2 space-y-3.5">
             {cart.map(item => {
-              const imgSrc = IMAGE_MAP[item.id]
+              const imgSrc = item.image_url || IMAGE_MAP[item.id]
               return (
                 <div key={item.id} className="bg-white border border-slate-200/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-[20px] shadow-xs hover:shadow-sm transition-all">
                   <div className="flex items-center gap-4 w-full">
@@ -576,7 +576,7 @@ export default function ShoppingCart() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {MOCK.products.filter(p => [3, 8, 15, 19].includes(p.id)).map(rec => {
-              const imgSrc = IMAGE_MAP[rec.id]
+              const imgSrc = rec.image_url || IMAGE_MAP[rec.id]
               return (
                 <Link
                   key={rec.id}

@@ -11,7 +11,11 @@ const BRAND_MAP = {
   'Laptops': 'NORD & VALE',
   'Phones': 'KESTREL',
   'Electronics': 'AURALIS',
+  'Home & Living': 'HEARTHSIDE',
   'Home': 'HEARTHSIDE',
+  'Fashion': 'ATELIER',
+  'Beauty': 'LUMIÈRE',
+  'Accessories': 'EQUINOX',
 }
 
 // Map products to high-quality Unsplash image URLs
@@ -186,7 +190,7 @@ export default function ProductDetail() {
   }
 
   const brand = BRAND_MAP[product.category] || 'MERIDIAN'
-  const imageUrl = IMAGE_MAP[product.id] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
+  const imageUrl = product.image_url || IMAGE_MAP[product.id] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
   const reviewsCount = REVIEW_COUNT_MAP[product.id] || 450
   const inStock = product.stock > 0
   const discountPercent = product.originalPrice 

@@ -1,4 +1,4 @@
-import { Star, ShoppingCart, ExternalLink, Heart } from 'lucide-react'
+import { Star, ShoppingCart, ExternalLink, Heart, Sparkles, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
@@ -8,12 +8,14 @@ const BRAND_MAP = {
   'Laptops':     'NORD & VALE',
   'Phones':      'KESTREL',
   'Electronics': 'AURALIS',
+  'Home & Living': 'HEARTHSIDE',
   'Home':        'HEARTHSIDE',
   'Fashion':     'ATELIER',
   'Beauty':      'LUMIÈRE',
+  'Accessories': 'EQUINOX',
 }
 
-// Map all 20 products to high-quality Unsplash image URLs
+// Fallback image map
 const IMAGE_MAP = {
   1:  'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&q=80',  // MacBook Pro
   2:  'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=800&q=80',  // iPhone 15 Pro
@@ -37,14 +39,6 @@ const IMAGE_MAP = {
   20: 'https://images.unsplash.com/photo-1541643600914-78b084683702?auto=format&fit=crop&w=800&q=80',  // Perfume
 }
 
-// Review counts
-const REVIEW_COUNT_MAP = {
-  1: 1240, 2: 642,  3: 318,  4: 982,  5: 540,
-  6: 2104, 7: 311,  8: 1450, 9: 220,  10: 178,
-  11: 450, 12: 129, 13: 384, 14: 591, 15: 267,
-  16: 193, 17: 412, 18: 738, 19: 1102, 20: 328,
-}
-
 export default function ProductCard({ product }) {
   const { addToCart } = useCart()
   const { toggleWishlist, isInWishlist } = useWishlist()
@@ -63,131 +57,128 @@ export default function ProductCard({ product }) {
 
   const isFav = isInWishlist(product.id)
   const brand = BRAND_MAP[product.category] || 'MERIDIAN'
-  const imageUrl = IMAGE_MAP[product.id] || IMAGE_MAP[1]
-  const reviewsCount = REVIEW_COUNT_MAP[product.id] || 450
+  const imageUrl = product.image_url || IMAGE_MAP[product.id] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80'
   const inStock = product.stock > 0
 
   const discountPercent = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : null
 
-  const savings = product.originalPrice ? product.originalPrice - product.price : 0
-
   let badgeText = ''
-  if (product.id === 1 || product.id === 2)  badgeText = 'Bestseller'
-  else if (product.id === 3 || product.id === 7)  badgeText = "Editor's Pick"
-  else if (product.id === 8 || product.id === 19) badgeText = 'New'
+  if (product.id % 7 === 1) badgeText = 'Bestseller'
+  else if (product.id % 7 === 3) badgeText = "Editor's Choice"
+  else if (product.id % 7 === 5) badgeText = 'New Arrival'
+  else if (product.price > 80000) badgeText = 'Premium'
 
   return (
-    <div className="group relative flex flex-col bg-white rounded-[22px] border border-slate-200/70 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden select-none">
-
-      {/* Product Image */}
-      <div className="relative aspect-square overflow-hidden bg-slate-100">
+    <div className="group relative flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden select-none">
+      
+      {/* Product Image and Hover Actions */}
+      <div className="relative aspect-[4/5] overflow-hidden bg-slate-50">
         <img
           src={imageUrl}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-107"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
         />
 
-        {/* Gradient overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Hover Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Badge top-left */}
-        {badgeText && (
-          <span className="absolute top-3 left-3 bg-white/95 text-slate-800 text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
-            {badgeText}
-          </span>
-        )}
-
-        {/* Discount % badge top-right (only if no wishlist overlap) */}
-        {discountPercent && !badgeText && (
-          <span className="absolute top-3 left-3 bg-emerald-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full">
-            -{discountPercent}%
-          </span>
-        )}
+        {/* Badges Top-Left */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+          {badgeText && (
+            <span className="bg-slate-900/95 backdrop-blur-xs text-white text-[9px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs">
+              {badgeText}
+            </span>
+          )}
+          {discountPercent && (
+            <span className="bg-emerald-500 text-white text-[9px] font-extrabold px-2.5 py-1 rounded-full shadow-xs w-fit">
+              -{discountPercent}% OFF
+            </span>
+          )}
+        </div>
 
         {/* Heart Wishlist button */}
         <button
           type="button"
           onClick={handleWishlistToggle}
           aria-label={isFav ? 'Remove from wishlist' : 'Add to wishlist'}
-          className={`absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm transition-all duration-200 active:scale-90
-            ${isFav ? 'text-red-500' : 'text-slate-400 hover:text-red-400'}`}
+          className={`absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center shadow-md transition-all duration-350 hover:scale-110 active:scale-95 z-10 cursor-pointer
+            ${isFav ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}
         >
-          <Heart size={15} className={isFav ? 'fill-red-500 text-red-500' : ''} />
+          <Heart size={16} className={isFav ? 'fill-red-500 text-red-500' : ''} />
         </button>
 
-        {/* Quick add to cart — visible on hover on desktop, always visible on mobile */}
-        <button
-          onClick={handleAdd}
-          disabled={!inStock}
-          className="absolute bottom-3 left-3 right-3 py-2 bg-white/95 backdrop-blur-sm text-slate-900 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all duration-250 hover:bg-slate-900 hover:text-white
-                     opacity-100 lg:opacity-0 lg:translate-y-2 lg:group-hover:opacity-100 lg:group-hover:translate-y-0"
-        >
-          <ShoppingCart size={12} />
-          {inStock ? 'Quick Add' : 'Out of Stock'}
-        </button>
+        {/* Hover quick add / detail buttons */}
+        <div className="absolute bottom-4 left-4 right-4 flex gap-2 transition-all duration-300 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 z-10">
+          <button
+            onClick={handleAdd}
+            disabled={!inStock}
+            className="flex-1 py-2.5 bg-slate-900 text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <ShoppingCart size={12} />
+            {inStock ? 'Add to Cart' : 'Sold Out'}
+          </button>
+          
+          <Link
+            to={`/product/${product.id}`}
+            className="w-10 h-10 bg-white hover:bg-slate-50 text-slate-800 rounded-xl flex items-center justify-center shadow-lg transition-colors"
+            title="View Details"
+          >
+            <ExternalLink size={13} />
+          </Link>
+        </div>
       </div>
 
-      {/* Info section */}
-      <div className="flex flex-col flex-1 p-4 gap-2">
-
-        {/* Brand + category */}
+      {/* Info Section */}
+      <div className="flex flex-col flex-1 p-4.5 gap-2 text-left">
+        {/* Brand */}
         <div className="flex items-center justify-between">
-          <span className="text-[9px] font-extrabold text-slate-400 tracking-widest uppercase">{brand}</span>
-          {discountPercent && (
-            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-              -{discountPercent}%
-            </span>
-          )}
+          <span className="text-[9px] font-black text-slate-400 tracking-widest uppercase">{brand}</span>
+          <span className="text-[10px] text-slate-450 font-medium capitalize bg-slate-55 px-2 py-0.5 rounded-full">{product.category}</span>
         </div>
 
         {/* Product Name */}
         <Link
           to={`/product/${product.id}`}
           id={`view-product-${product.id}`}
-          className="text-sm font-bold text-slate-800 leading-snug line-clamp-2 hover:text-slate-600 transition-colors"
+          className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 hover:text-blue-600 transition-colors"
         >
           {product.name}
         </Link>
 
-        {/* Stars + reviews */}
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <div className="flex items-center gap-0.5">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={10}
-                className={i < Math.round(product.rating) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}
-              />
-            ))}
+        {/* Ratings & reviews count */}
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700">
+          <div className="flex items-center text-amber-400">
+            <Star size={11} className="fill-current" />
           </div>
-          <span className="text-slate-700 font-bold">{product.rating}</span>
-          <span className="text-slate-400">({reviewsCount.toLocaleString()})</span>
+          <span>{product.rating}</span>
+          <span className="text-slate-350">|</span>
+          <span className="text-slate-400">({(product.id * 17 + 89).toLocaleString()} sold)</span>
         </div>
 
-        {/* Price block */}
-        <div className="mt-auto pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-2">
-            <span className="text-base font-black text-slate-900">
-              ₹{product.price.toLocaleString('en-IN')}
+        {/* Stock status & delivery options */}
+        <div className="flex items-center justify-between text-[10px] font-bold mt-1">
+          {product.stock <= 15 ? (
+            <span className="text-amber-600">Only {product.stock} left in stock</span>
+          ) : (
+            <span className="text-emerald-600">In Stock</span>
+          )}
+          <span className="text-slate-400">Free Next-Day</span>
+        </div>
+
+        {/* Price Block */}
+        <div className="mt-auto pt-3.5 border-t border-slate-100 flex items-baseline gap-2">
+          <span className="text-base font-black text-slate-900">
+            ₹{product.price.toLocaleString('en-IN')}
+          </span>
+          {product.originalPrice && (
+            <span className="text-xs text-slate-450 line-through">
+              ₹{product.originalPrice.toLocaleString('en-IN')}
             </span>
-            {product.originalPrice && (
-              <span className="text-xs text-slate-400 line-through">
-                ₹{product.originalPrice.toLocaleString('en-IN')}
-              </span>
-            )}
-          </div>
-          <Link
-            to={`/product/${product.id}`}
-            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all flex-shrink-0"
-            title="View Details"
-          >
-            <ExternalLink size={13} />
-          </Link>
+          )}
         </div>
-
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
 DSA,Baseline_us,Optimized_us,Speedup,Improvement_pct,Notes
 LRU Cache,45000,400,112.5,99.1,PostgreSQL query vs in-memory LRU Cache lookup
-Trie Search,65.56,0.93,70.5,98.6,Linear scan vs Trie prefix lookup
+Trie Search,105.29,1.32,79.7,98.7,Linear scan vs Trie prefix lookup
 Bloom Filter,50000.0,22785.0,2.2,54.4,54.4% of DB queries blocked — 0% false negatives
-Graph BFS,36.59,6.18,5.9,83.1,Naive O(V*E) vs BFS O(V+E)
-Min Heap,120.78,3.39,35.6,97.2,O(n log n) sort vs O(log n) heap pop
-Segment Tree,77.87,8.65,9.0,88.9,O(n) linear sum vs O(log n) segment tree
-Dynamic Programming,1.5,107.21,0.0,17.9,Greedy +28% vs DP +33% conversion
+Graph BFS,50.64,8.03,6.3,84.1,Naive O(V*E) vs BFS O(V+E)
+Min Heap,155.01,5.58,27.8,96.4,O(n log n) sort vs O(log n) heap pop
+Segment Tree,90.55,12.85,7.0,85.8,O(n) linear sum vs O(log n) segment tree
+Dynamic Programming,1.94,143.39,0.0,17.9,Greedy +28% vs DP +33% conversion

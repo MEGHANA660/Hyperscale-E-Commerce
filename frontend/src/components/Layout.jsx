@@ -7,7 +7,7 @@ export default function Layout() {
     <div className="min-h-screen bg-bg-premium flex flex-col font-sans">
       <Header />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 max-w-full w-full mx-auto px-6 sm:px-12 lg:px-16 xl:px-24 py-6 sm:py-8">
         <Outlet />
       </main>
 

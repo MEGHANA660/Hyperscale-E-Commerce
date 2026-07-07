@@ -35,18 +35,18 @@ MOCK.products.forEach(p => {
 
 // Skeleton loader
 const SearchSkeleton = () => (
-  <div className="animate-pulse flex flex-col bg-white rounded-[22px] border border-slate-200/50 shadow-sm overflow-hidden">
-    <div className="aspect-square bg-slate-150 w-full" />
+  <div className="animate-pulse flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div className="aspect-[4/5] bg-slate-100 w-full" />
     <div className="p-4 space-y-3">
-      <div className="h-2 w-14 bg-slate-150 rounded" />
-      <div className="h-3.5 w-3/4 bg-slate-150 rounded" />
-      <div className="h-3 w-1/2 bg-slate-150 rounded" />
-      <div className="h-4 w-1/3 bg-slate-150 rounded" />
+      <div className="h-2 w-14 bg-slate-100 rounded" />
+      <div className="h-3.5 w-3/4 bg-slate-100 rounded" />
+      <div className="h-3 w-1/2 bg-slate-100 rounded" />
+      <div className="h-4 w-1/3 bg-slate-100 rounded" />
     </div>
   </div>
 )
 
-const CATEGORIES = ['All', 'Electronics', 'Laptops', 'Phones', 'Fashion', 'Beauty', 'Home']
+const CATEGORIES = ['All', 'Electronics', 'Laptops', 'Phones', 'Fashion', 'Beauty', 'Home & Living', 'Accessories']
 const PRICE_RANGES = [
   { label: 'All Prices',          val: 'All' },
   { label: 'Under ₹5,000',       val: 'under-5k' },
@@ -188,7 +188,7 @@ export default function ProductSearch() {
             <select
               value={sortBy}
               onChange={e => { setSortBy(e.target.value); applyFilters(selectedCategory, selectedPriceRange, selectedRating, e.target.value) }}
-              className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-800 cursor-pointer"
+              className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-8 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-850 cursor-pointer"
             >
               {SORT_OPTIONS.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
             </select>
@@ -198,7 +198,7 @@ export default function ProductSearch() {
           {/* Mobile filter toggle */}
           <button
             onClick={() => setShowMobileFilters(!showMobileFilters)}
-            className={`lg:hidden flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all
+            className={`lg:hidden flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer
               ${hasActiveFilters ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'}`}
           >
             <SlidersHorizontal size={13} />
@@ -207,31 +207,31 @@ export default function ProductSearch() {
         </div>
       </div>
 
-      {/* Main grid */}
-      <div className="flex gap-6 items-start">
+      {/* Main grid with 25% / 75% Split */}
+      <div className="grid lg:grid-cols-4 gap-8 items-start">
 
-        {/* ── Sidebar ── */}
-        <aside className={`w-56 shrink-0 bg-white border border-slate-200/60 rounded-[20px] shadow-xs p-5 space-y-6 lg:block
+        {/* ── Sidebar (25% column) ── */}
+        <aside className={`lg:col-span-1 lg:sticky lg:top-24 lg:self-start bg-white border border-slate-100 rounded-3xl p-6 space-y-6 lg:block shadow-sm
           ${showMobileFilters ? 'block fixed inset-0 z-50 w-72 h-screen overflow-y-auto rounded-none border-0' : 'hidden'}`}
         >
           <div className="flex items-center justify-between">
-            <h2 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+            <h2 className="font-black text-slate-900 text-sm flex items-center gap-2">
               <SlidersHorizontal size={15} /> Filters
             </h2>
             <div className="flex items-center gap-2">
               {hasActiveFilters && (
-                <button onClick={clearAll} className="text-[11px] font-bold text-slate-500 hover:text-slate-900 underline transition-colors">
+                <button onClick={clearAll} className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer">
                   Clear all
                 </button>
               )}
-              <button onClick={() => setShowMobileFilters(false)} className="lg:hidden text-slate-400 hover:text-slate-700 text-xs font-bold">✕</button>
+              <button onClick={() => setShowMobileFilters(false)} className="lg:hidden text-slate-400 hover:text-slate-700 text-xs font-bold cursor-pointer">✕</button>
             </div>
           </div>
 
           {/* Category */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Category</h3>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {CATEGORIES.map(cat => {
                 const isActive = selectedCategory.toLowerCase() === cat.toLowerCase()
                 const count = cat === 'All' ? MOCK.products.length : MOCK.products.filter(p => p.category.toLowerCase() === cat.toLowerCase()).length
@@ -239,8 +239,8 @@ export default function ProductSearch() {
                   <button
                     key={cat}
                     onClick={() => { setSelectedCategory(cat); applyFilters(cat, selectedPriceRange, selectedRating, sortBy) }}
-                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
-                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all cursor-pointer
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'}`}
                   >
                     <span>{cat}</span>
                     <span className={`text-[10px] font-semibold ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>
@@ -251,17 +251,17 @@ export default function ProductSearch() {
           </div>
 
           {/* Price */}
-          <div className="space-y-2 border-t border-slate-100 pt-5">
+          <div className="space-y-3 border-t border-slate-100 pt-5">
             <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Price Range</h3>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {PRICE_RANGES.map(opt => {
                 const isActive = selectedPriceRange === opt.val
                 return (
                   <button
                     key={opt.val}
                     onClick={() => { setSelectedPriceRange(opt.val); applyFilters(selectedCategory, opt.val, selectedRating, sortBy) }}
-                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
-                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all cursor-pointer
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-650 hover:bg-slate-50'}`}
                   >
                     <span>{opt.label}</span>
                     {isActive && <Check size={11} />}
@@ -272,17 +272,17 @@ export default function ProductSearch() {
           </div>
 
           {/* Rating */}
-          <div className="space-y-2 border-t border-slate-100 pt-5">
+          <div className="space-y-3 border-t border-slate-100 pt-5">
             <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Customer Rating</h3>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {RATINGS.map(opt => {
                 const isActive = selectedRating === opt.val
                 return (
                   <button
                     key={opt.val}
                     onClick={() => { setSelectedRating(opt.val); applyFilters(selectedCategory, selectedPriceRange, opt.val, sortBy) }}
-                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all
-                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-50'}`}
+                    className={`flex items-center justify-between text-xs py-2 px-3 rounded-xl text-left transition-all cursor-pointer
+                      ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-650 hover:bg-slate-50'}`}
                   >
                     <span className="flex items-center gap-1">
                       {opt.val !== 'All' && <Star size={10} className="text-amber-400 fill-amber-400" />}
@@ -301,23 +301,23 @@ export default function ProductSearch() {
           <div className="lg:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setShowMobileFilters(false)} />
         )}
 
-        {/* ── Products grid ── */}
-        <section className="flex-1 min-w-0">
+        {/* ── Products grid (75% column) ── */}
+        <section className="lg:col-span-3 min-w-0">
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {[...Array(8)].map((_, i) => <SearchSkeleton key={i} />)}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[...Array(6)].map((_, i) => <SearchSkeleton key={i} />)}
             </div>
           ) : results.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-[24px] p-16 text-center shadow-xs space-y-3">
+            <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center shadow-sm space-y-4">
               <div className="text-5xl select-none">🔍</div>
-              <h3 className="font-bold text-slate-800 text-base">No products found</h3>
+              <h3 className="font-black text-slate-800 text-base">No products found</h3>
               <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
                 We couldn't find anything matching your criteria. Try adjusting your filters or search term.
               </p>
-              <button onClick={clearAll} className="btn-pill-dark text-xs py-2 px-5 mt-2">Clear filters</button>
+              <button onClick={clearAll} className="btn-pill-dark text-xs py-2.5 px-5 mt-2 cursor-pointer">Clear filters</button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {results.map(p => (
                 <ProductCard key={p.id} product={p} />
               ))}
