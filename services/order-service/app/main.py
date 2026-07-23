@@ -1,17 +1,42 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi.security import HTTPBearer, HTTPAuthCredentials
+import jwt
 import os
 import json
 import asyncio
 import logging
+from typing import Optional
+from sqlalchemy.orm import Session
 
 from . import models
 from . import database
 from .database import engine, get_db, init_db
 from shared.dsa.min_heap import MinHeap
 from shared.core_logger.logger import CoreLogger
+from shared.security import add_security_headers, RateLimiter
 
 app = FastAPI(title="HyperScale Order Service")
+
+security = HTTPBearer(auto_error=False)
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
+ALGORITHM = "HS256"
+rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+
+async def verify_jwt_token(credentials: Optional[HTTPAuthCredentials] = Depends(security)) -> Optional[dict]:
+    if not credentials:
+        return None
+    try:
+        return jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "127.0.0.1"
+    if not await rate_limiter.check_rate_limit(ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    response = await call_next(request)
+    return add_security_headers(response)
 
 # Initialize DSA: Min Heap (Priority Queue)
 order_queue = MinHeap()

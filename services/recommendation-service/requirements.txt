@@ -6,3 +6,5 @@ python-dotenv
 pydantic
 aiokafka
 python-multipart
+PyJWT==2.8.1
+

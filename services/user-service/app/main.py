@@ -1,12 +1,39 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthCredentials
+import jwt
+import os
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from . import models
 from .database import engine, get_db, init_db
 from shared.dsa.lru_cache import LRUCache
 from shared.core_logger.logger import CoreLogger
+from shared.security import add_security_headers, RateLimiter
 
 app = FastAPI(title="HyperScale User Service")
+
+security = HTTPBearer(auto_error=False)
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
+ALGORITHM = "HS256"
+rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+
+async def verify_jwt_token(credentials: Optional[HTTPAuthCredentials] = Depends(security)) -> Optional[dict]:
+    if not credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    ip = request.client.host if request.client else "127.0.0.1"
+    if not await rate_limiter.check_rate_limit(ip):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    response = await call_next(request)
+    return add_security_headers(response)
 
 # Initialize DSA: LRU Cache (Capacity 1000 users)
 user_cache = LRUCache(1000)

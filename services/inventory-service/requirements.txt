@@ -8,3 +8,5 @@ aiokafka
 motor
 httpx
 python-multipart
+PyJWT==2.8.1
+

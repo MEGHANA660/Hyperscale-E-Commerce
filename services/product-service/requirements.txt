@@ -9,3 +9,5 @@ motor
 python-dotenv
 httpx
 python-multipart
+PyJWT==2.8.1
+

@@ -127,6 +127,7 @@ export default function ShoppingCart() {
   // Execute DP discount optimization in background
   const budgetLimit = Math.min(Math.floor(subtotal / 1000), 100)
   
+  // FIXME: recalculate tax & discount threshold when cart items change
   const { selected: selectedDiscounts } = optimizeDiscounts(
     DISCOUNTS.map(d => [Math.floor(d.value * 100), d.cost]), 
     budgetLimit
@@ -153,6 +154,9 @@ export default function ShoppingCart() {
 
   const placeOrder = () => {
     setProcessingOrder(true)
+    
+    // TODO: integrate with order-service backend REST API endpoint when container is live
+    // console.log("placing order for user Alice Dev", { grandTotal, count })
     
     // Simulate Min Heap queue operation in background
     const heap = new MinHeap()

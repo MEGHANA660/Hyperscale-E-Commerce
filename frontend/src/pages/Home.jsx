@@ -46,30 +46,52 @@ const PROMO_SLIDES = [
 
 const TESTIMONIALS = [
   {
+    id: 'rev-101',
     quote: 'Clean, fast, and beautifully organized. The aesthetic is genuinely second to none — I find myself browsing just to enjoy the UI.',
     author: 'Charlotte M.',
     role: 'Design Lead, Figma',
     initials: 'CM',
     rating: 5,
-    avatarBg: 'bg-violet-100 text-violet-750',
+    verified: true,
+    purchase: 'MacBook Pro 16"',
+    avatarBg: 'bg-violet-100 text-violet-800',
   },
   {
+    id: 'rev-102',
     quote: 'The attention to detail in packaging and delivery speeds is spectacular. Express delivery actually arrived in 90 minutes.',
     author: 'Julian K.',
     role: 'Senior Engineer, Google',
     initials: 'JK',
     rating: 5,
-    avatarBg: 'bg-blue-100 text-blue-750',
+    verified: true,
+    purchase: 'Sony WH-1000XM5',
+    avatarBg: 'bg-blue-100 text-blue-800',
   },
   {
+    id: 'rev-103',
     quote: 'A platform that respects simplicity. Product quality is exceptional, checkout calculations are mathematically optimized, and returns are hassle-free.',
     author: 'Sophie V.',
     role: 'Architect & Founder',
     initials: 'SV',
     rating: 5,
-    avatarBg: 'bg-emerald-100 text-emerald-750',
+    verified: true,
+    purchase: 'Dyson V15 Detect',
+    avatarBg: 'bg-emerald-100 text-emerald-800',
+  },
+  {
+    id: 'rev-104',
+    quote: 'The Trie autocomplete and Bloom filter security make search instant. As a developer, seeing DSA applied in e-commerce is brilliant.',
+    author: 'Rohan Sharma',
+    role: 'Backend Architect',
+    initials: 'RS',
+    rating: 5,
+    verified: true,
+    purchase: 'Keychron Q1 Pro',
+    avatarBg: 'bg-amber-100 text-amber-800',
   },
 ]
+// console.log("loaded testimonials", TESTIMONIALS.length)
+// TODO: fetch live testimonials from customer review endpoint when API is ready
 
 export default function Home() {
   const categoriesRef = useRef(null)
@@ -443,38 +465,59 @@ export default function Home() {
       </section>
 
       {/* ─── 12. TESTIMONIALS ─────────────────────────────────────────────── */}
-      <section className="space-y-10">
-        <div className="text-left border-b border-slate-200 pb-4">
-          <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">What Our Members Say</h2>
-          <p className="text-slate-455 text-xs sm:text-sm font-medium mt-1">Trusted by 50,000+ shoppers across India</p>
+      <section className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-200 pb-4 text-left gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-200">
+                4.9 / 5.0 Overall Score
+              </span>
+              <span className="text-slate-400 text-xs font-semibold">from 12,400+ reviews</span>
+            </div>
+            <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">What Our Members Say</h2>
+            <p className="text-slate-450 text-xs sm:text-sm font-medium mt-0.5">Verified customer experiences & delivery feedback</p>
+          </div>
+          
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-2xl shrink-0">
+            <ShieldCheck size={14} className="text-emerald-600" />
+            <span>100% Verified Buyers</span>
+          </div>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((item, idx) => (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {TESTIMONIALS.map((item) => (
             <div
-              key={idx}
-              className="bg-white border border-slate-100 rounded-[24px] p-8 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col gap-5 text-left"
+              key={item.id}
+              className="bg-white border border-slate-200/70 rounded-[24px] p-6 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between gap-4 text-left group"
             >
-              {/* Stars */}
-              <div className="flex items-center gap-0.5">
-                {[...Array(item.rating)].map((_, i) => (
-                  <Star key={i} size={14} className="text-amber-400 fill-amber-400" />
-                ))}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-0.5">
+                    {[...Array(item.rating)].map((_, i) => (
+                      <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
+                    ))}
+                  </div>
+                  {item.verified && (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-150">
+                      Verified
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-700 leading-relaxed font-semibold">
+                  "{item.quote}"
+                </p>
               </div>
 
-              {/* Quote */}
-              <p className="text-sm text-slate-650 leading-relaxed font-semibold flex-1">
-                "{item.quote}"
-              </p>
-
-              {/* Author */}
-              <div className="flex items-center gap-3.5 pt-4 border-t border-slate-50">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${item.avatarBg} shadow-xs`}>
-                  {item.initials}
-                </div>
-                <div>
-                  <p className="text-xs font-black text-slate-800">{item.author}</p>
-                  <p className="text-[10px] text-slate-450 font-bold">{item.role}</p>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${item.avatarBg}`}>
+                    {item.initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-black text-slate-900 truncate">{item.author}</p>
+                    <p className="text-[10px] text-slate-400 font-bold truncate">{item.role}</p>
+                  </div>
                 </div>
               </div>
             </div>

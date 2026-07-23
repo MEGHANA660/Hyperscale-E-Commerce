@@ -170,6 +170,14 @@ export default function ProductSearch() {
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-[10px] font-black text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              ⚡ Trie Search {window.__lastTrieTime ? `${window.__lastTrieTime}ms` : 'Active'}
+            </span>
+            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              🛡️ Bloom Filter Guard {window.__bloomBlocked || 0} Blocked
+            </span>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             {selectedCategory !== 'All' ? selectedCategory : 'All Products'}
           </h1>
@@ -206,6 +214,34 @@ export default function ProductSearch() {
           </button>
         </div>
       </div>
+
+      {/* Active Filter Chips Bar */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 flex-wrap bg-slate-50 p-3 rounded-2xl border border-slate-200/60">
+          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mr-1">Active:</span>
+          {selectedCategory !== 'All' && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold bg-white text-slate-800 border border-slate-250 px-3 py-1 rounded-full shadow-2xs">
+              Cat: {selectedCategory}
+              <button onClick={() => applyFilters('All', selectedPriceRange, selectedRating, sortBy)} className="hover:text-red-500 font-black ml-0.5">✕</button>
+            </span>
+          )}
+          {selectedPriceRange !== 'All' && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold bg-white text-slate-800 border border-slate-250 px-3 py-1 rounded-full shadow-2xs">
+              Price: {PRICE_RANGES.find(p => p.val === selectedPriceRange)?.label}
+              <button onClick={() => applyFilters(selectedCategory, 'All', selectedRating, sortBy)} className="hover:text-red-500 font-black ml-0.5">✕</button>
+            </span>
+          )}
+          {selectedRating !== 'All' && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold bg-white text-slate-800 border border-slate-250 px-3 py-1 rounded-full shadow-2xs">
+              Rating: {selectedRating}★+
+              <button onClick={() => applyFilters(selectedCategory, selectedPriceRange, 'All', sortBy)} className="hover:text-red-500 font-black ml-0.5">✕</button>
+            </span>
+          )}
+          <button onClick={clearAll} className="text-xs font-bold text-blue-600 hover:text-blue-800 ml-auto underline cursor-pointer">
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* Main grid with 25% / 75% Split */}
       <div className="grid lg:grid-cols-4 gap-8 items-start">
