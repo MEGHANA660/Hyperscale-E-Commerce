@@ -2,11 +2,6 @@
 
 A production-grade e-commerce microservices platform that proves **algorithmic optimization beats infrastructure scaling**. Built with 10 microservices, 7 Data Structures & Algorithms, JWT authentication, Docker, Kubernetes, and CI/CD pipeline.
 
-**Live Demo (Staging):** https://staging.cartblitz.com  
-**API Endpoint (Staging):** https://api.staging.cartblitz.com  
-**Production:** https://cartblitz.com
-
----
 
 ## 🚀 Features
 
