@@ -4,11 +4,12 @@
  */
 
 const SERVICES = {
-  products: 'http://localhost:8001',
-  users:    'http://localhost:8002',
-  orders:   'http://localhost:8003',
-  recs:     'http://localhost:8004',
-  analytics:'http://localhost:8005',
+  products: 'http://localhost:5002',
+  users:    'http://localhost:5001',
+  orders:   'http://localhost:5004',
+  recs:     'http://localhost:5005',
+  analytics:'http://localhost:5006',
+  auth:     'http://localhost:5008',
 }
 
 // Generic fetch helper with error handling

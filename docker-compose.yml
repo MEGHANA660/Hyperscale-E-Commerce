@@ -1,7 +1,12 @@
 version: '3.8'
 
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+
 services:
-  # Infrastructure
+  # ── Infrastructure ──────────────────────────────────────────────────────────
   postgres:
     image: postgres:15
     environment:
@@ -10,24 +15,96 @@ services:
       POSTGRES_DB: hyperscale
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   mongodb:
-    image: mongo:latest
+    image: mongo:7
     ports:
       - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
-      - "15672:15672" # Management UI
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
-  # Microservices
+  # ── Core Services ───────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "5008:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-me}
+
+  cart-service:
+    build:
+      context: ./services/cart_service
+      dockerfile: Dockerfile
+    ports:
+      - "5009:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  payment-service:
+    build:
+      context: ./services/payment_service
+      dockerfile: Dockerfile
+    ports:
+      - "5010:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
+
+  review-service:
+    build:
+      context: ./services/review_service
+      dockerfile: Dockerfile
+    ports:
+      - "5011:8000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+
   main-service:
     build:
       context: ./services/main-service
@@ -35,7 +112,8 @@ services:
     ports:
       - "5000:8000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     environment:
       - USER_SERVICE_URL=http://user-service:8000
       - PRODUCT_SERVICE_URL=http://product-service:8000
@@ -48,8 +126,10 @@ services:
     ports:
       - "5001:8000"
     depends_on:
-      - postgres
-      - mongodb
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
       - MONGO_URI=mongodb://mongodb:27017
@@ -61,9 +141,12 @@ services:
     ports:
       - "5002:8000"
     depends_on:
-      - postgres
-      - mongodb
-      - redis
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - PRODUCT_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
       - MONGO_URI=mongodb://mongodb:27017
@@ -76,8 +159,10 @@ services:
     ports:
       - "5003:8000"
     depends_on:
-      - postgres
-      - mongodb
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
       - MONGO_URI=mongodb://mongodb:27017
@@ -89,8 +174,10 @@ services:
     ports:
       - "5004:8000"
     depends_on:
-      - postgres
-      - mongodb
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
       - MONGO_URI=mongodb://mongodb:27017
@@ -102,10 +189,13 @@ services:
     ports:
       - "5005:8000"
     depends_on:
-      - redis
-      - mongodb
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://mongodb:27017
+      - REDIS_HOST=redis
 
   analytics-service:
     build:
@@ -114,7 +204,8 @@ services:
     ports:
       - "5006:8000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     environment:
       - MONGO_URI=mongodb://mongodb:27017
 
@@ -125,8 +216,10 @@ services:
     ports:
       - "5007:8000"
     depends_on:
-      - rabbitmq
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
     environment:
       - RABBITMQ_URL=pyamqp://guest:guest@rabbitmq:5672//
       - MONGO_URI=mongodb://mongodb:27017
@@ -137,6 +230,7 @@ services:
       dockerfile: Dockerfile
     command: celery -A app.worker.celery_app worker --loglevel=info
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
     environment:
       - RABBITMQ_URL=pyamqp://guest:guest@rabbitmq:5672//

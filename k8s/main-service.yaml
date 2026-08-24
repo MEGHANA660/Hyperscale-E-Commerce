@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: main-service
+  namespace: hyperscale
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: main-service
+  template:
+    metadata:
+      labels:
+        app: main-service
+    spec:
+      containers:
+        - name: main-service
+          image: ghcr.io/meghana660/hyperscale-main-service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: USER_SERVICE_URL
+              value: http://user-service:8000
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8000
+            - name: MONGO_URI
+              value: mongodb://mongodb:27017
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: main-service
+  namespace: hyperscale
+spec:
+  selector:
+    app: main-service
+  ports:
+    - port: 8000
+      targetPort: 8000
