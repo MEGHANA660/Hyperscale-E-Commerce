@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import jwt
 import os
@@ -24,7 +24,7 @@ class ReviewSubmission(BaseModel):
     rating: int
     comment: str
 
-async def verify_user(credentials: Optional[HTTPAuthCredentials] = Depends(security)) -> dict:
+async def verify_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Login required to leave review")
     try:

@@ -3,6 +3,7 @@ visualize_results.py — Generate performance charts from benchmark results.
 Run AFTER performance_tests.py to generate results.csv first.
 """
 import csv, os, sys
+sys.stdout.reconfigure(encoding='utf-8', errors='replace') if hasattr(sys.stdout, 'reconfigure') else None
 
 # Try matplotlib, gracefully degrade
 try:

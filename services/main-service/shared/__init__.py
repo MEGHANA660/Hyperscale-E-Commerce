@@ -1,1 +1,1 @@
-﻿# Shared module
+# Shared module

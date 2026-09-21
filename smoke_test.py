@@ -1,5 +1,9 @@
 import requests
 import time
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 SERVICES = [
     {"name": "API Gateway", "url": "http://localhost:5000/health"},

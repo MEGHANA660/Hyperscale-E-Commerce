@@ -1,1 +1,1 @@
-﻿# Core Logger module
+# Core Logger module

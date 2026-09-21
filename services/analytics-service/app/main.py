@@ -63,6 +63,12 @@ def query_range(start: int = 0, end: int = 11):
     }
 
 
+@app.get("/analytics/stock/range", tags=["Analytics"])
+def query_stock_range(low_idx: int = 0, high_idx: int = 11):
+    """Alias for range queries compatible with smoke tests."""
+    return query_range(start=max(0, low_idx), end=min(high_idx, len(SALES_DATA) - 1))
+
+
 @app.get("/analytics/dashboard", tags=["Analytics"])
 def get_dashboard():
     """Full analytics dashboard — all months data."""

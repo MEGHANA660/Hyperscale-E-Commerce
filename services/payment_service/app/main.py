@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import jwt
 import os
@@ -19,7 +19,7 @@ class PaymentRequest(BaseModel):
     currency: str = "INR"
     payment_method: str = "upi"
 
-async def get_current_user(credentials: Optional[HTTPAuthCredentials] = Depends(security)) -> dict:
+async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token required for payment processing")
     try:
