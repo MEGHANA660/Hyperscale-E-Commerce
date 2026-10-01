@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: hyperscale
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+        - name: analytics-service
+          image: ghcr.io/meghana660/hyperscale-analytics-service:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MONGO_URI
+              value: mongodb://mongodb:27017
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: hyperscale
+spec:
+  selector:
+    app: analytics-service
+  ports:
+    - port: 8000
+      targetPort: 8000

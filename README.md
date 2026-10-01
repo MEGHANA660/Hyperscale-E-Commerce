@@ -28,13 +28,13 @@ A production-grade e-commerce microservices platform that proves **algorithmic o
 
 | Algorithm | Performance Gain | Use Case |
 |-----------|-----------------|----------|
-| **LRU Cache** | **100x faster** | User session caching |
-| **Trie Search** | **50x faster** | Product autocomplete |
-| **Bloom Filter** | **95% reduction** | DB query optimization |
-| **Segment Tree** | **125x faster** | Range queries |
-| **Graph BFS** | **O(V+E)** | Recommendations |
-| **Min Heap** | **O(log n)** | Order prioritization |
-| **Dynamic Programming** | **Optimal** | Discount allocation |
+| **LRU Cache** | **112.5x faster** | User session caching |
+| **Trie Search** | **114.9x faster** | Product autocomplete |
+| **Bloom Filter** | **54.5% reduction** (2.2x speedup) | DB query optimization |
+| **Segment Tree** | **8.6x faster** | Range queries |
+| **Graph BFS** | **6.0x faster** | Recommendations |
+| **Min Heap** | **17.4x faster** | Order prioritization |
+| **Dynamic Programming** | **+17.9% quality gain** | Discount allocation |
 
 ---
 
