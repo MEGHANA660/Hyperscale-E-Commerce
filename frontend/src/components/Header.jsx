@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ShoppingCart, Search, X, User, Heart, Menu } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
-import { MOCK } from '../services/api'
+import { productApi, MOCK } from '../services/api'
 
 // Simple Trie client-side for Header autocomplete
 class TrieNode {
@@ -87,28 +87,28 @@ export default function Header() {
     const val = e.target.value
     setQuery(val)
 
-    if (!val.trim()) {
+    if (!val.trim() || val.trim().length < 2) {
       setSuggestions([])
       setShowSuggestions(false)
       return
     }
 
-    // Trie suggestion fetch
-    const matchedIds = headerTrie.search(val.trim())
-    const matchedProducts = MOCK.products.filter(p => matchedIds.includes(p.id))
-    
-    // Create direct prefix matches first
-    const directMatches = MOCK.products.filter(p =>
-      p.name.toLowerCase().startsWith(val.toLowerCase()) ||
-      p.category.toLowerCase().startsWith(val.toLowerCase())
-    )
-
-    const uniqueSuggestions = Array.from(
-      new Set([...directMatches, ...matchedProducts])
-    ).slice(0, 5)
-
-    setSuggestions(uniqueSuggestions)
-    setShowSuggestions(uniqueSuggestions.length > 0)
+    // Debounced Trie-based autocomplete from Product Service (DSA #2)
+    clearTimeout(window._autocompleteTimer)
+    window._autocompleteTimer = setTimeout(async () => {
+      try {
+        const data = await productApi.autocomplete(val.trim())
+        const items = data.suggestions || []
+        setSuggestions(items.slice(0, 6))
+        setShowSuggestions(items.length > 0)
+      } catch {
+        // Fallback: client-side Trie on API error
+        const matchedIds = headerTrie.search(val.trim())
+        const matchedProducts = MOCK.products.filter(p => matchedIds.includes(p.id)).slice(0, 6)
+        setSuggestions(matchedProducts)
+        setShowSuggestions(matchedProducts.length > 0)
+      }
+    }, 200)
   }
 
   const handleSuggestionClick = (prod) => {

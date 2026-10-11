@@ -6,6 +6,6 @@ pydantic
 motor
 python-dotenv
 bcrypt
-PyJWT
+PyJWT==2.9.0
 httpx
 python-multipart

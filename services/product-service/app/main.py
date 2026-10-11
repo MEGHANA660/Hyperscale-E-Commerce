@@ -1,24 +1,36 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 import jwt
 import os
 import json
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from . import models
 from . import database
 from .database import engine, get_db, init_db
 from shared.dsa.trie import Trie
+from shared.dsa.bloom_filter import BloomFilter
 from shared.core_logger.logger import CoreLogger
 from shared.security import add_security_headers, RateLimiter, InputValidator
 
-app = FastAPI(title="HyperScale Product Service")
+app = FastAPI(title="HyperScale Product Service", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 security = HTTPBearer(auto_error=False)
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
 ALGORITHM = "HS256"
-rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+rate_limiter = RateLimiter(max_requests=200, window_seconds=60)
 
 async def verify_jwt_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
     if not credentials:
@@ -36,8 +48,15 @@ async def security_middleware(request: Request, call_next):
     response = await call_next(request)
     return add_security_headers(response)
 
-# Initialize DSA: Trie (In-memory for lightning fast autocomplete)
+# Initialize DSA Implementations
+# 1. Trie: Autocomplete search (O(m) prefix lookup)
 product_trie = Trie()
+# 2. Bloom Filter: Fast existence check guarding database queries
+product_bloom = BloomFilter(expected_elements=10000, false_positive_rate=0.01)
+
+# Real runtime statistics counters
+bloom_stats = {"total_queries": 0, "blocked_queries": 0, "allowed_queries": 0}
+trie_stats = {"total_lookups": 0, "words_indexed": 0}
 
 # Initialize Core Logger
 logger = CoreLogger("product-service")
@@ -58,62 +77,193 @@ try:
 except Exception:
     pass
 
+def warm_dsas(db: Session):
+    """Warm Trie and Bloom Filter with all products from the database."""
+    global trie_stats
+    all_products = db.query(models.Product).all()
+    words_count = 0
+    for p in all_products:
+        product_bloom.add(p.id)
+        # Index product name words into Trie
+        for word in p.name.split():
+            product_trie.insert(word, p.id)
+            words_count += 1
+        if p.category:
+            product_trie.insert(p.category, p.id)
+            words_count += 1
+    trie_stats["words_indexed"] = words_count
+    return len(all_products)
+
 @app.on_event("startup")
 async def startup_event():
-    # Create tables with retry logic
     init_db()
     await logger.connect()
-    # Warm up the Trie (DSA Innovation #2)
     try:
         db = next(get_db())
-        all_products = db.query(models.Product).all()
-        for p in all_products:
-            product_trie.insert(p.name, p.id)
-        await logger.info(f"Product Service started. Trie warmed with {len(all_products)} products.")
+        count = warm_dsas(db)
+        await logger.info(f"Product Service started. Warmed Trie & Bloom Filter with {count} products.")
     except Exception as e:
-        await logger.warning(f"Could not warm trie on startup: {e}")
-        await logger.info("Product Service started (trie warm-up skipped).")
+        await logger.warning(f"Could not warm DSAs on startup: {e}")
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "product-service"}
+
+@app.get("/products")
+def list_products(
+    category: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all products with pagination and category filtering.
+    """
+    query = db.query(models.Product)
+    if category and category.lower() != "all":
+        query = query.filter(models.Product.category.ilike(category))
+    
+    total = query.count()
+    offset = max(0, (page - 1) * limit)
+    items = query.order_by(models.Product.id.asc()).offset(offset).limit(limit).all()
+    
+    products_data = [
+        {
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "price": p.price,
+            "stock": p.stock,
+            "category": p.category,
+            "image_url": p.image_url,
+            "rating": p.rating or 4.5
+        }
+        for p in items
+    ]
+    return {"products": products_data, "total": total, "page": page, "limit": limit}
 
 @app.get("/products/autocomplete")
-async def autocomplete(prefix: str):
+def autocomplete(prefix: str, db: Session = Depends(get_db)):
     """
     Search suggestions using the Trie (DSA #2).
     Time Complexity: O(m) where m is prefix length.
     """
     if not prefix:
-        return []
+        return {"suggestions": [], "prefix": prefix}
         
-    suggestions = product_trie.search(prefix)
-    return {"suggestions": suggestions, "prefix": prefix}
+    trie_stats["total_lookups"] += 1
+    matched_ids = product_trie.search(prefix)
+    
+    suggestions = []
+    if matched_ids:
+        items = db.query(models.Product).filter(models.Product.id.in_(matched_ids)).all()
+        suggestions = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "category": p.category,
+                "price": p.price,
+                "image_url": p.image_url
+            }
+            for p in items
+        ]
+    return {
+        "suggestions": suggestions,
+        "matched_ids": matched_ids,
+        "prefix": prefix,
+        "dsa": "Trie",
+        "complexity": "O(m)"
+    }
 
 @app.get("/products/search")
-async def advanced_search(q: str):
+@app.get("/search")
+def search_products(q: str = "", category: Optional[str] = None, db: Session = Depends(get_db)):
     """
-    Advanced search using Elasticsearch for fuzzy matching and descriptions.
+    Search products using Trie-assisted database search or Elasticsearch.
     """
-    if es is None:
-        return {"error": "Elasticsearch not available", "results": []}
-    try:
-        query = {
-            "multi_match": {
-                "query": q,
-                "fields": ["name", "description", "category"]
-            }
-        }
-        resp = es.search(index="products", query=query)
-        results = [hit["_source"] for hit in resp["hits"]["hits"]]
-        return results
-    except Exception as e:
-        await logger.error(f"ES Search failed: {e}")
+    if not q:
         return []
+
+    # 1. Elasticsearch if available
+    if es:
+        try:
+            query = {
+                "multi_match": {
+                    "query": q,
+                    "fields": ["name", "description", "category"],
+                    "fuzziness": "AUTO"
+                }
+            }
+            resp = es.search(index="products", query=query)
+            results = [hit["_source"] for hit in resp["hits"]["hits"]]
+            if results:
+                return results
+        except Exception:
+            pass
+
+    # 2. Database search
+    db_query = db.query(models.Product).filter(
+        (models.Product.name.ilike(f"%{q}%")) |
+        (models.Product.description.ilike(f"%{q}%")) |
+        (models.Product.category.ilike(f"%{q}%"))
+    )
+    if category and category.lower() != "all":
+        db_query = db_query.filter(models.Product.category.ilike(category))
+    
+    products = db_query.limit(40).all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "price": p.price,
+            "stock": p.stock,
+            "category": p.category,
+            "image_url": p.image_url,
+            "rating": p.rating or 4.5
+        }
+        for p in products
+    ]
+
+@app.get("/exists/{product_id}")
+def check_exists(product_id: int):
+    """
+    Bloom Filter existence check endpoint.
+    Guards against database queries for invalid product IDs.
+    """
+    bloom_stats["total_queries"] += 1
+    exists = product_bloom.exists(product_id)
+    if not exists:
+        bloom_stats["blocked_queries"] += 1
+    else:
+        bloom_stats["allowed_queries"] += 1
+    return {
+        "product_id": product_id,
+        "might_exist": exists,
+        "dsa": "Bloom Filter",
+        "complexity": "O(k)"
+    }
 
 @app.get("/products/{product_id}")
 async def get_product(product_id: int, db: Session = Depends(get_db)):
-    # 1. Check Redis Cache
+    """
+    Get product details by ID.
+    Step 1: Check Bloom Filter existence guard (DSA #3).
+    Step 2: Check Redis Cache.
+    Step 3: Fallback to PostgreSQL.
+    """
+    bloom_stats["total_queries"] += 1
+    
+    # 1. Bloom Filter Check
+    if not product_bloom.exists(product_id):
+        bloom_stats["blocked_queries"] += 1
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Product {product_id} does not exist (Blocked by Bloom Filter pre-check: 0 DB queries needed)"
+        )
+    bloom_stats["allowed_queries"] += 1
+
+    # 2. Check Redis Cache
     if redis_client:
         try:
             cached = redis_client.get(f"product:{product_id}")
@@ -123,7 +273,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         except Exception:
             pass
 
-    # 2. DB Fallback
+    # 3. DB Fallback
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -133,10 +283,13 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
         "name": product.name,
         "description": product.description,
         "price": product.price,
-        "stock": product.stock
+        "stock": product.stock,
+        "category": product.category,
+        "image_url": product.image_url,
+        "rating": product.rating or 4.5
     }
 
-    # 3. Update Redis
+    # 4. Update Redis
     if redis_client:
         try:
             redis_client.setex(f"product:{product_id}", 3600, json.dumps(product_data))
@@ -145,26 +298,154 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     
     return product_data
 
-@app.post("/products")
-async def create_product(name: str, price: float, description: str = "", db: Session = Depends(get_db)):
-    product = models.Product(name=name, price=price, description=description)
+class ProductCreate(BaseModel):
+    name: str
+    price: float
+    description: str = ""
+    category: str = "Electronics"
+    stock: int = 50
+    image_url: Optional[str] = None
+    rating: float = 4.5
+
+@app.post("/products", status_code=status.HTTP_201_CREATED)
+async def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
+    """Create a new product and update Trie and Bloom Filter."""
+    product = models.Product(
+        name=payload.name,
+        price=payload.price,
+        description=payload.description,
+        category=payload.category,
+        stock=payload.stock,
+        image_url=payload.image_url,
+        rating=payload.rating
+    )
     db.add(product)
     db.commit()
     db.refresh(product)
     
-    # Update Trie
-    product_trie.insert(name, product.id)
+    # Update Bloom Filter & Trie
+    product_bloom.add(product.id)
+    for word in product.name.split():
+        product_trie.insert(word, product.id)
+    if product.category:
+        product_trie.insert(product.category, product.id)
     
     # Sync to Elasticsearch
     if es:
         try:
             es.index(index="products", id=product.id, document={
                 "id": product.id,
-                "name": name,
-                "description": description,
-                "price": price
+                "name": product.name,
+                "description": product.description,
+                "price": product.price,
+                "category": product.category
             })
         except Exception as e:
             await logger.error(f"Failed to sync to ES: {e}")
 
     return product
+
+# ─── Inventory Atomic Stock Operations (Phase 2 & End-to-End) ───────────────────
+class StockRequest(BaseModel):
+    quantity: int = 1
+
+@app.post("/products/{product_id}/reserve")
+def reserve_stock(product_id: int, req: StockRequest, db: Session = Depends(get_db)):
+    """
+    Atomic Stock Reservation using conditional SQL:
+    UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock;
+    Guarantees no race conditions or overselling under high parallel concurrency.
+    """
+    if req.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    
+    result = db.execute(
+        text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
+        {"qty": req.quantity, "id": product_id}
+    ).fetchone()
+    
+    if not result:
+        prod = db.query(models.Product).filter(models.Product.id == product_id).first()
+        if not prod:
+            raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(
+            status_code=409, 
+            detail=f"Insufficient stock for product '{prod.name}'. Available: {prod.stock}, Requested: {req.quantity}"
+        )
+    
+    db.commit()
+    remaining = result[0]
+    if redis_client:
+        try:
+            redis_client.delete(f"product:{product_id}")
+        except Exception:
+            pass
+    return {
+        "status": "reserved",
+        "product_id": product_id,
+        "quantity_reserved": req.quantity,
+        "remaining_stock": remaining
+    }
+
+@app.post("/products/{product_id}/release")
+def release_stock(product_id: int, req: StockRequest, db: Session = Depends(get_db)):
+    """Release reserved stock back to inventory upon payment cancellation or timeout."""
+    if req.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
+    
+    result = db.execute(
+        text("UPDATE products SET stock = stock + :qty WHERE id = :id RETURNING stock"),
+        {"qty": req.quantity, "id": product_id}
+    ).fetchone()
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    db.commit()
+    if redis_client:
+        try:
+            redis_client.delete(f"product:{product_id}")
+        except Exception:
+            pass
+    return {
+        "status": "released",
+        "product_id": product_id,
+        "quantity_released": req.quantity,
+        "current_stock": result[0]
+    }
+
+# ─── Real DSA Metric Statistics Endpoints ─────────────────────────────────────
+@app.get("/bloom/stats")
+def get_bloom_stats(db: Session = Depends(get_db)):
+    """Bloom Filter performance metrics."""
+    total = bloom_stats["total_queries"]
+    blocked = bloom_stats["blocked_queries"]
+    allowed = bloom_stats["allowed_queries"]
+    reduction = round((blocked / max(1, total)) * 100, 1)
+    items_count = db.query(models.Product).count()
+    return {
+        "dsa": "Bloom Filter",
+        "service": "product-service",
+        "total_queries": total,
+        "blocked_queries": blocked,
+        "allowed_queries": allowed,
+        "reduction_pct": reduction,
+        "items_in_filter": items_count,
+        "false_positive_rate": 0.01,
+        "description": "Pre-check before DB for product existence. Rejects non-existent IDs with 0% false negatives.",
+        "complexity": "O(k)"
+    }
+
+@app.get("/trie/stats")
+def get_trie_stats(db: Session = Depends(get_db)):
+    """Trie autocomplete performance metrics."""
+    items_count = db.query(models.Product).count()
+    return {
+        "dsa": "Trie",
+        "service": "product-service",
+        "total_lookups": trie_stats["total_lookups"],
+        "words_indexed": trie_stats["words_indexed"],
+        "items_indexed": items_count,
+        "time_complexity": "O(m) where m is prefix length",
+        "description": "In-memory prefix tree for sub-millisecond autocomplete suggestions."
+    }

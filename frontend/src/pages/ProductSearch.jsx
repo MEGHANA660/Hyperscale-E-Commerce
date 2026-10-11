@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal, Check, Star, ChevronDown } from 'lucide-react'
-import { MOCK } from '../services/api'
+import { productApi, MOCK } from '../services/api'
 import ProductCard from '../components/ProductCard'
 
 // ── Trie search logic (preserved in background) ──────────────────────────────
@@ -92,32 +92,35 @@ export default function ProductSearch() {
   const doSearch = useCallback((q, cat, priceRange, ratingLimit, sort) => {
     setLoading(true)
     clearTimeout(searchTimerRef.current)
-    searchTimerRef.current = setTimeout(() => {
-      let matched = MOCK.products
-
-      // Trie search
-      if (q.trim()) {
-        const t0 = performance.now()
-        const ids = clientTrie.search(q)
-        window.__lastTrieTime  = (performance.now() - t0).toFixed(4)
-        window.__lastQuery     = q
-        if (ids.length > 0) {
-          matched = MOCK.products.filter(p => ids.includes(p.id))
+    searchTimerRef.current = setTimeout(async () => {
+      let matched = []
+      const t0 = performance.now()
+      
+      try {
+        if (q.trim()) {
+          matched = await productApi.search(q, cat === 'All' ? '' : cat)
+          window.__lastTrieTime = (performance.now() - t0).toFixed(4)
+          window.__lastQuery = q
         } else {
-          matched = MOCK.products.filter(p =>
-            p.name.toLowerCase().includes(q.toLowerCase()) ||
-            p.category.toLowerCase().includes(q.toLowerCase())
-          )
+          const res = await productApi.getAll(1, 60, cat === 'All' ? '' : cat)
+          matched = res.products || []
+        }
+      } catch (err) {
+        console.warn("Backend search fallback:", err.message)
+        matched = MOCK.products
+        if (q.trim()) {
+          const ids = clientTrie.search(q)
+          matched = ids.length > 0 ? MOCK.products.filter(p => ids.includes(p.id)) : MOCK.products.filter(p => p.name.toLowerCase().includes(q.toLowerCase()))
         }
       }
 
-      // Bloom filter telemetry
+      // Telemetry
       window.__bloomChecked = (window.__bloomChecked || 0) + 1
-      if (q.trim() && !MOCK.products.some(p => p.name.toLowerCase().includes(q.toLowerCase()))) {
+      if (matched.length === 0 && q.trim()) {
         window.__bloomBlocked = (window.__bloomBlocked || 0) + 1
       }
 
-      // Category filter
+      // Category filter (if client-side refinement needed)
       if (cat && cat !== 'All') {
         matched = matched.filter(p => p.category.toLowerCase() === cat.toLowerCase())
       }
@@ -133,17 +136,17 @@ export default function ProductSearch() {
 
       // Rating filter
       if (ratingLimit && ratingLimit !== 'All') {
-        matched = matched.filter(p => p.rating >= parseFloat(ratingLimit))
+        matched = matched.filter(p => (p.rating || 4.5) >= parseFloat(ratingLimit))
       }
 
       // Sort
       if (sort === 'price-asc')  matched = [...matched].sort((a, b) => a.price - b.price)
       if (sort === 'price-desc') matched = [...matched].sort((a, b) => b.price - a.price)
-      if (sort === 'rating')     matched = [...matched].sort((a, b) => b.rating - a.rating)
+      if (sort === 'rating')     matched = [...matched].sort((a, b) => (b.rating || 4.5) - (a.rating || 4.5))
 
       setResults(matched)
       setLoading(false)
-    }, 350)
+    }, 250)
   }, [])
 
   const applyFilters = (newCat, newPrice, newRating, newSort) => {

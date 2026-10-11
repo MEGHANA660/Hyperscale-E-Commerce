@@ -9,7 +9,7 @@ const SERVICES = {
   orders:   'http://localhost:5004',
   recs:     'http://localhost:5005',
   analytics:'http://localhost:5006',
-  auth:     'http://localhost:5008',
+  auth:     'http://localhost:5001',
 }
 
 // Generic fetch helper with error handling
@@ -25,22 +25,26 @@ async function apiFetch(url, options = {}) {
     }
     return await res.json()
   } catch (error) {
-    console.error(`[API Error] ${url}:`, error.message)
+    console.warn(`[API Error] ${url}:`, error.message)
     throw error
   }
 }
 
 // ─── Product Service ──────────────────────────────────────────────────────────
 export const productApi = {
-  /** Trie-based autocomplete search */
-  search: (query) =>
-    apiFetch(`${SERVICES.products}/search?q=${encodeURIComponent(query)}`),
+  /** Trie-based autocomplete suggestions (O(m) prefix) */
+  autocomplete: (prefix) =>
+    apiFetch(`${SERVICES.products}/products/autocomplete?prefix=${encodeURIComponent(prefix)}`),
 
-  /** Get all products with pagination */
-  getAll: (page = 1, limit = 20) =>
-    apiFetch(`${SERVICES.products}/products?page=${page}&limit=${limit}`),
+  /** Search products (Trie prefix + DB / Elasticsearch) */
+  search: (query, category = '') =>
+    apiFetch(`${SERVICES.products}/products/search?q=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`),
 
-  /** Get single product by ID (LRU Cache backed) */
+  /** Get all products with pagination & category filter */
+  getAll: (page = 1, limit = 50, category = '') =>
+    apiFetch(`${SERVICES.products}/products?page=${page}&limit=${limit}&category=${encodeURIComponent(category)}`),
+
+  /** Get single product by ID (guarded by Bloom Filter & Redis) */
   getById: (id) =>
     apiFetch(`${SERVICES.products}/products/${id}`),
 
@@ -55,6 +59,13 @@ export const productApi = {
   /** Get Bloom Filter stats */
   getBloomStats: () =>
     apiFetch(`${SERVICES.products}/bloom/stats`),
+
+  /** Atomic stock reservation */
+  reserveStock: (productId, quantity = 1) =>
+    apiFetch(`${SERVICES.products}/products/${productId}/reserve`, {
+      method: 'POST',
+      body: JSON.stringify({ quantity }),
+    }),
 }
 
 // ─── User Service ─────────────────────────────────────────────────────────────
@@ -63,28 +74,42 @@ export const userApi = {
   getProfile: (userId) =>
     apiFetch(`${SERVICES.users}/users/${userId}`),
 
+  /** Get current user profile */
+  getMe: () =>
+    apiFetch(`${SERVICES.users}/users/me`),
+
   /** Get LRU Cache metrics */
   getLruStats: () =>
     apiFetch(`${SERVICES.users}/cache/stats`),
 
-  /** Create/login user */
+  /** Login user */
   login: (credentials) =>
-    apiFetch(`${SERVICES.users}/login`, { method: 'POST', body: JSON.stringify(credentials) }),
+    apiFetch(`${SERVICES.users}/users/login`, { method: 'POST', body: JSON.stringify(credentials) }),
 }
 
 // ─── Order Service ────────────────────────────────────────────────────────────
 export const orderApi = {
-  /** Place a new order (queued via Min Heap) */
-  placeOrder: (orderData) =>
-    apiFetch(`${SERVICES.orders}/orders`, { method: 'POST', body: JSON.stringify(orderData) }),
+  /** Place a new order (queued via Min Heap, atomic stock reserve) */
+  placeOrder: (orderData, idempotencyKey = null) => {
+    const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+    return apiFetch(`${SERVICES.orders}/orders`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(orderData),
+    })
+  },
+
+  /** Get customer orders history (for My Orders) */
+  getUserOrders: (userId = 1) =>
+    apiFetch(`${SERVICES.orders}/orders/user/${userId}`),
 
   /** Get order queue status */
   getQueue: () =>
-    apiFetch(`${SERVICES.orders}/queue`),
+    apiFetch(`${SERVICES.orders}/orders/queue`),
 
   /** Process next order from Min Heap */
   processNext: () =>
-    apiFetch(`${SERVICES.orders}/queue/process`, { method: 'POST' }),
+    apiFetch(`${SERVICES.orders}/orders/queue/process`, { method: 'POST' }),
 
   /** Get order by ID */
   getOrder: (orderId) =>

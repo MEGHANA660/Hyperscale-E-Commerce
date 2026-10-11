@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
-import { userApi, MOCK } from '../services/api'
+import { userApi, orderApi, MOCK } from '../services/api'
 
 const USER_ID = 1 // default seeded user 'alice_dev'
 
@@ -20,16 +20,32 @@ export default function UserProfile() {
   const [isSaved, setIsSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Orders mock details based on demo_data.sql for user 1
-  const [orders, setOrders] = useState([
-    { id: '1', date: 'May 12, 2026', total: 2499.99, status: 'delivered', type: 'standard', items: 'MacBook Pro 16"' },
-    { id: '2', date: 'May 16, 2026', total: 1199.99, status: 'processing', type: 'express', items: 'iPhone 15 Pro Max' },
-  ])
+  // Real orders state
+  const [orders, setOrders] = useState([])
 
   useEffect(() => {
     fetchProfile()
     fetchCacheStats()
+    fetchOrders()
   }, [])
+
+  const fetchOrders = async () => {
+    try {
+      const data = await orderApi.getUserOrders(USER_ID)
+      if (data && data.orders && data.orders.length > 0) {
+        setOrders(data.orders.map(o => ({
+          id: String(o.id),
+          date: o.created_at ? new Date(o.created_at).toLocaleDateString() : 'Recent',
+          total: o.total_price,
+          status: o.status,
+          type: o.priority === 1 ? 'express' : (o.priority === 2 ? 'priority' : 'standard'),
+          items: o.product_name || `Product #${o.product_id}`
+        })))
+      }
+    } catch (err) {
+      console.warn("Could not fetch orders from order-service:", err.message)
+    }
+  }
 
   const fetchProfile = async () => {
     setLoading(true)

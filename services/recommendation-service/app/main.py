@@ -51,11 +51,22 @@ app.add_middleware(
 product_graph = ProductGraph()
 _graph_operations = 0
 
-# Seed with some initial relationships
+# Seed with initial co-purchase relationships across all 6 categories
 INITIAL_EDGES = [
-    (1, 2), (1, 3), (2, 4), (3, 5), (4, 6), (5, 6),
-    (7, 8), (7, 9), (8, 10), (9, 10), (10, 11), (11, 12),
-    (1, 7), (2, 8), (3, 9), (4, 10),
+    # Laptops co-purchased with Peripherals & Monitors
+    (1, 20), (1, 21), (1, 22), (1, 17), (2, 20), (2, 22), (3, 20), (4, 21), (5, 20), (6, 19), (7, 21), (8, 22),
+    # Phones co-purchased with Earbuds, Watches & Accessories
+    (9, 19), (9, 18), (10, 18), (10, 19), (11, 19), (12, 17), (13, 18), (14, 19), (15, 19), (16, 17),
+    # Electronics co-purchased together
+    (17, 19), (18, 19), (20, 21), (21, 22), (23, 17), (24, 18),
+    # Home & Living co-purchases
+    (25, 30), (26, 31), (27, 28), (28, 29), (29, 30),
+    # Fashion co-purchases
+    (32, 34), (33, 34), (33, 37), (35, 32), (36, 34), (37, 38),
+    # Beauty co-purchases
+    (39, 43), (39, 45), (40, 41), (42, 44), (43, 45), (44, 39),
+    # Cross-category pairings
+    (1, 9), (9, 38), (32, 40), (25, 17), (18, 36),
 ]
 for p1, p2 in INITIAL_EDGES:
     product_graph.add_edge(p1, p2)

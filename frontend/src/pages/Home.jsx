@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Truck, RotateCcw, ShieldCheck, Sparkles, Star, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
-import { MOCK } from '../services/api'
+import { productApi, MOCK } from '../services/api'
 import ProductCard from '../components/ProductCard'
 
 const CATEGORIES = [
@@ -113,24 +113,25 @@ export default function Home() {
     categoriesRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // --- Dynamic Products Categorization based on requirements ---
-  // Best Sellers (includes IDs 1, 2, 3, 5)
-  const bestsellers = MOCK.products.filter(p => [1, 2, 3, 5].includes(p.id))
+  const [productsList, setProductsList] = useState(MOCK.products)
 
-  // Trending Products (IDs 6, 7, 8, 9, 10, 11)
-  const trending = MOCK.products.filter(p => [6, 7, 8, 9, 10, 11].includes(p.id))
+  useEffect(() => {
+    productApi.getAll(1, 50)
+      .then(res => {
+        if (res && res.products && res.products.length > 0) {
+          setProductsList(res.products)
+        }
+      })
+      .catch(err => console.warn("Backend product service fallback:", err.message))
+  }, [])
 
-  // New Arrivals (IDs 21, 22, 34, 35, 72, 73, 106, 107)
-  const newArrivals = MOCK.products.filter(p => [21, 22, 34, 35, 72, 73, 106, 107].includes(p.id))
-
-  // Premium Picks (products with price > 90,000)
-  const premiumPicks = MOCK.products.filter(p => p.price >= 90000).slice(0, 4)
-
-  // Flash Sale Items (curated high discount items)
-  const flashSaleItems = MOCK.products.filter(p => [8, 13, 15, 19].includes(p.id))
-
-  // Recommended Products (fresh picks, Accessories, Beauty)
-  const recommended = MOCK.products.filter(p => p.category === 'Accessories' || p.category === 'Beauty').slice(0, 4)
+  // --- Dynamic Products Categorization from live catalog ---
+  const bestsellers = productsList.slice(0, 4)
+  const trending = productsList.slice(4, 10)
+  const newArrivals = productsList.slice(10, 18)
+  const premiumPicks = productsList.filter(p => p.price >= 80000).slice(0, 4)
+  const flashSaleItems = productsList.slice(18, 22)
+  const recommended = productsList.filter(p => p.category === 'Fashion' || p.category === 'Beauty' || p.category === 'Home & Living').slice(0, 4)
 
   return (
     <div className="space-y-16 sm:space-y-24 animate-in">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Star, ShoppingCart, ArrowLeft, ShieldCheck, Truck, RotateCcw, Heart, MessageSquare, List } from 'lucide-react'
-import { MOCK } from '../services/api'
+import { productApi, recApi, MOCK } from '../services/api'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import ProductCard from '../components/ProductCard'
@@ -150,21 +150,38 @@ export default function ProductDetail() {
   useEffect(() => {
     window.scrollTo(0, 0)
     setFetching(true)
-    
-    // Simulate slight API fetch loading delay to show premium skeletal loading states
-    const timer = setTimeout(() => {
-      const { data } = lruGet(id)
-      setProduct(data)
+    const numId = parseInt(id)
 
-      const pid = parseInt(id)
-      const recIds = bfsRecommend(pid, 2)
-      const recProducts = MOCK.products.filter(p => recIds.includes(p.id)).slice(0, 4)
-      setRecs(recProducts)
-      setQty(1) // Reset quantity on ID change
-      setFetching(false)
-    }, 500)
-
-    return () => clearTimeout(timer)
+    // Call real backend Product Service (Bloom filter guarded + Redis cached)
+    productApi.getById(numId)
+      .then(data => {
+        setProduct(data)
+        // Call real backend Recommendation Service (Graph BFS)
+        recApi.getRecommendations(numId, 2)
+          .then(recData => {
+            const recIds = recData.recommended_ids || []
+            if (recIds.length > 0) {
+              setRecs(MOCK.products.filter(p => recIds.includes(p.id)).slice(0, 4))
+            } else {
+              setRecs(MOCK.products.filter(p => p.id !== numId && p.category === data.category).slice(0, 4))
+            }
+          })
+          .catch(() => {
+            const fallbackIds = bfsRecommend(numId, 2)
+            setRecs(MOCK.products.filter(p => fallbackIds.includes(p.id)).slice(0, 4))
+          })
+      })
+      .catch(err => {
+        console.warn("Backend product service unavailable, using local cache:", err.message)
+        const { data } = lruGet(id)
+        setProduct(data)
+        const fallbackIds = bfsRecommend(numId, 2)
+        setRecs(MOCK.products.filter(p => fallbackIds.includes(p.id)).slice(0, 4))
+      })
+      .finally(() => {
+        setQty(1)
+        setFetching(false)
+      })
   }, [id])
 
   if (fetching || !product) {
