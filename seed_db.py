@@ -195,8 +195,44 @@ def seed_database():
     
     with engine.begin() as conn:
         print("[1/5] Ensuring table schemas and necessary columns exist...")
-        # Add columns if missing
+        # Ensure base tables exist
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                hashed_password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT 'customer',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS products (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                price FLOAT NOT NULL,
+                stock INTEGER NOT NULL DEFAULT 0,
+                category VARCHAR(100),
+                image_url VARCHAR,
+                rating FLOAT DEFAULT 4.5,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                product_id INTEGER NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                total_price FLOAT NOT NULL DEFAULT 0.0,
+                priority INTEGER DEFAULT 3,
+                status VARCHAR(50) DEFAULT 'pending',
+                items JSONB,
+                idempotency_key VARCHAR,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
             ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url VARCHAR;
             ALTER TABLE products ADD COLUMN IF NOT EXISTS rating FLOAT DEFAULT 4.5;
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB;
@@ -219,7 +255,7 @@ def seed_database():
             """), p)
 
         # Update product sequence to avoid conflict on new inserts
-        conn.execute(text("SELECT setval('products_id_seq', (SELECT MAX(id) FROM products));"))
+        conn.execute(text("SELECT setval(pg_get_serial_sequence('products', 'id'), COALESCE((SELECT MAX(id) FROM products), 1));"))
         
         print(f"[3/5] Seeding {len(USERS)} users (Admin & Customer)...")
         for u in USERS:
@@ -232,7 +268,7 @@ def seed_database():
                     hashed_password = EXCLUDED.hashed_password,
                     role = EXCLUDED.role;
             """), u)
-        conn.execute(text("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));"))
+        conn.execute(text("SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));"))
 
         print(f"[4/5] Seeding {len(ORDERS)} orders...")
         for o in ORDERS:
@@ -247,7 +283,7 @@ def seed_database():
                     priority = EXCLUDED.priority,
                     status = EXCLUDED.status;
             """), o)
-        conn.execute(text("SELECT setval('orders_id_seq', (SELECT MAX(id) FROM orders));"))
+        conn.execute(text("SELECT setval(pg_get_serial_sequence('orders', 'id'), COALESCE((SELECT MAX(id) FROM orders), 1));"))
 
         print("[5/5] Verification of seeded rows:")
         prod_count = conn.execute(text("SELECT COUNT(*) FROM products;")).scalar()

@@ -49,3 +49,6 @@ dump*.sql
 
 # Kubernetes secrets (never commit actual values)
 k8s/*-secret-values.yaml
+
+__pycache__/
+*.pyc

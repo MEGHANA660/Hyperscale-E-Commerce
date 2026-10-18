@@ -12,4 +12,4 @@ requests
 httpx
 python-dotenv
 bcrypt
-PyJWT
+PyJWT==2.9.0

@@ -98,12 +98,16 @@ def warm_dsas(db: Session):
 async def startup_event():
     init_db()
     await logger.connect()
+    db = None
     try:
         db = next(get_db())
         count = warm_dsas(db)
         await logger.info(f"Product Service started. Warmed Trie & Bloom Filter with {count} products.")
     except Exception as e:
         await logger.warning(f"Could not warm DSAs on startup: {e}")
+    finally:
+        if db:
+            db.close()
 
 @app.get("/health")
 def health_check():

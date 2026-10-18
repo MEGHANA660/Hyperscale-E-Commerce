@@ -62,7 +62,7 @@ logger = CoreLogger("order-service")
 async def startup_event():
     init_db()
     await logger.connect()
-    # Warm Min Heap with any pending orders in database
+    db = None
     try:
         db = next(get_db())
         pending_orders = db.query(models.Order).filter(models.Order.status == "pending").all()
@@ -81,6 +81,9 @@ async def startup_event():
         await logger.info(f"Order Service started. Min Heap initialized with {order_queue.size()} pending orders.")
     except Exception as e:
         await logger.warning(f"Could not warm Min Heap on startup: {e}")
+    finally:
+        if db:
+            db.close()
 
 @app.get("/health")
 def health_check():
