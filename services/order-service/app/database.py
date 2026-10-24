@@ -39,7 +39,7 @@ def init_db():
     return False
 
 
-_NEW_COLUMNS = {"payment_txn_id": "VARCHAR", "failure_reason": "VARCHAR"}
+_NEW_COLUMNS = {"payment_txn_id": "VARCHAR", "failure_reason": "VARCHAR", "reserved_lines": "JSON"}
 
 
 def ensure_columns():

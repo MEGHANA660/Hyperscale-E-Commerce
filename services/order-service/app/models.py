@@ -11,8 +11,9 @@ class Order(Base):
     quantity = Column(Integer)
     total_price = Column(Float)
     priority = Column(Integer)  # 1: Express, 2: Premium, 3: Standard
-    status = Column(String, default="pending") # paid, payment_failed, delivered, ...
+    status = Column(String, default="pending") # pending -> reserved -> paid -> delivered | failed | payment_failed | expired | cancelled | refunded
     items = Column(JSON, nullable=True)
+    reserved_lines = Column(JSON, nullable=True)  # stock this order holds, e.g. [{product_id, quantity}]
     payment_txn_id = Column(String, nullable=True)
     failure_reason = Column(String, nullable=True)
     idempotency_key = Column(String, unique=True, index=True, nullable=True)

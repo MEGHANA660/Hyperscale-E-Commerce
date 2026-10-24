@@ -59,3 +59,11 @@ def charge(order_ref: str, amount: float, payment_method: str, idempotency_key: 
         headers={"Authorization": f"Bearer {_service_token()}", "Idempotency-Key": idempotency_key},
         name="Payment service",
     )
+
+
+def refund(transaction_id: str) -> dict:
+    return _post(
+        f"{PAYMENT_SERVICE_URL}/payments/{transaction_id}/refund", {},
+        headers={"Authorization": f"Bearer {_service_token()}"},
+        name="Payment service",
+    )

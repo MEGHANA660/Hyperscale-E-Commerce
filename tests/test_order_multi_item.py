@@ -27,7 +27,17 @@ class FakeProductService:
             raise c.ServiceError(402, "Payment declined")
         return {"status": "success", "transaction_id": "txn-test"}
 
+    def refund(self, txn):
+        self.calls.append(("refund", txn))
+        if getattr(self, "refund_fails", False):
+            import app.clients as c
+            raise c.ServiceError(503, "Payment service unreachable")
+        return {"status": "refunded"}
+
     def release(self, pid, qty):
+        if getattr(self, "release_fails", False):
+            import app.clients as c
+            raise c.ServiceError(503, "Product service unreachable")
         self.calls.append(("release", pid, qty))
         self.stock[pid] += qty
         return {"status": "released"}
@@ -41,6 +51,7 @@ def order_env(monkeypatch):
     monkeypatch.setattr(clients, "reserve_stock", fake.reserve)
     monkeypatch.setattr(clients, "release_stock", fake.release)
     monkeypatch.setattr(clients, "charge", fake.charge)
+    monkeypatch.setattr(clients, "refund", fake.refund)
     yield client, (lambda pid: fake.stock[pid]), fake
     mod.app.dependency_overrides.clear()
 
@@ -67,7 +78,8 @@ def test_second_item_out_of_stock_rolls_back_first(order_env):
     assert r.status_code == 409
     assert stock(1) == 5  # first item restored
     assert stock(3) == 1
-    assert client.get("/orders/user/7").json()["count"] == 0
+    orders = client.get("/orders/user/7").json()["orders"]
+    assert [o["status"] for o in orders] == ["failed"]  # recorded, never paid
 
 
 @pytest.mark.integration
