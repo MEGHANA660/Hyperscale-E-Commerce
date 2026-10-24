@@ -10,9 +10,14 @@ import logging
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta, timezone
 
 from . import models
 from . import database
+from . import clients
+import uuid
+from starlette.concurrency import run_in_threadpool
 from .database import engine, get_db, init_db
 from shared.dsa.min_heap import MinHeap
 from shared.core_logger.logger import CoreLogger
@@ -61,7 +66,10 @@ logger = CoreLogger("order-service")
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    database.ensure_columns()
     await logger.connect()
+    if os.getenv("DISABLE_EXPIRY_LOOP") != "1":
+        asyncio.create_task(_expiry_loop())
     db = None
     try:
         db = next(get_db())
@@ -101,8 +109,83 @@ class OrderCreate(BaseModel):
     quantity: int = 1
     total_price: float = 0.0
     priority: int = 3  # 1: Express (2hr), 2: Priority (Next day), 3: Standard
+    payment_method: str = "upi"
     items: Optional[List[Dict[str, Any]]] = None
     idempotency_key: Optional[str] = None
+
+ORDER_EXPIRY_MINUTES = int(os.getenv("ORDER_EXPIRY_MINUTES", "15"))
+EXPIRY_SWEEP_SECONDS = int(os.getenv("EXPIRY_SWEEP_SECONDS", "60"))
+# Order states: pending -> reserved -> paid -> delivered
+#               failed | payment_failed | expired | cancelled | refunded
+HOLDING_STATES = ("pending", "reserved")                       # in flight; stuck ones expire
+RELEASED_STATES = ("failed", "payment_failed", "expired", "cancelled", "refunded")
+
+
+def _parse_lines(payload: "OrderCreate") -> Dict[int, int]:
+    """Merge the cart into {product_id: quantity}, rejecting bad input."""
+    lines: Dict[int, int] = {}
+    for it in (payload.items or []):
+        try:
+            pid, qty = int(it["product_id"]), int(it.get("quantity", 1))
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="Each item needs a numeric product_id and quantity")
+        if qty < 1:
+            raise HTTPException(status_code=422, detail=f"Invalid quantity for product {pid}")
+        lines[pid] = lines.get(pid, 0) + qty
+    if not lines:  # legacy single-product payload
+        lines[payload.product_id or 1] = payload.quantity if payload.quantity > 0 else 1
+    return lines
+
+
+def _release_held(db: Session, order: models.Order) -> bool:
+    """Give back all stock this order still holds. Progress is saved after every line,
+    so a retry after a partial failure never releases the same line twice."""
+    lines = list(order.reserved_lines or [])
+    while lines:
+        line = lines[0]
+        try:
+            clients.release_stock(line["product_id"], line["quantity"])
+        except clients.ServiceError:
+            return False
+        lines = lines[1:]
+        order.reserved_lines = lines
+        db.commit()
+    return True
+
+
+def _set_status(db: Session, order: models.Order, new_status: str, reason: Optional[str] = None):
+    order.status = new_status
+    if reason:
+        order.failure_reason = reason[:250]
+    db.commit()
+
+
+def _existing_order_response(existing: models.Order) -> dict:
+    if existing.status == "payment_failed":
+        raise HTTPException(status_code=402, detail=existing.failure_reason or "Payment failed")
+    if existing.status in ("failed", "expired"):
+        raise HTTPException(status_code=409, detail=existing.failure_reason or "Order failed")
+    return {
+        "message": "Order already processed (idempotent response)",
+        "order_id": existing.id,
+        "status": existing.status,
+        "total_price": existing.total_price,
+        "priority": existing.priority,
+        "payment_transaction_id": existing.payment_txn_id,
+        "idempotency_hit": True,
+    }
+
+
+def _charge_with_one_retry(order_id: int, amount: float, method: str, key: str) -> dict:
+    """A decline (402) is final. An unreachable/timed-out payment service is retried once
+    with the SAME idempotency key, which cannot double-charge."""
+    try:
+        return clients.charge(str(order_id), amount, method, key)
+    except clients.ServiceError as e:
+        if e.status_code < 500 and e.status_code != 408:  # 402 decline, 4xx: final
+            raise
+        return clients.charge(str(order_id), amount, method, key)
+
 
 @app.post("/orders", status_code=status.HTTP_201_CREATED)
 async def create_order(
@@ -111,97 +194,184 @@ async def create_order(
     db: Session = Depends(get_db)
 ):
     """
-    Accept an order, reserve stock, and enqueue into Min Heap priority queue.
-    Supports Idempotency-Key header to prevent duplicate charges or duplicate orders.
+    Saga: save order (pending) -> reserve stock for every item (reserved) -> charge (paid).
+    Every failure gives back what was taken: stock is released, and a payment that was taken
+    but could not be recorded is refunded. Orders that get stuck are expired by a sweep.
     """
     idemp_key = payload.idempotency_key or idempotency_key_header
-    
-    # 1. Idempotency Check
+
     if idemp_key:
-        existing_order = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
-        if existing_order:
-            await logger.info(f"Idempotency HIT for key {idemp_key}. Returning existing order {existing_order.id}.")
-            return {
-                "message": "Order already processed (idempotent response)",
-                "order_id": existing_order.id,
-                "status": existing_order.status,
-                "total_price": existing_order.total_price,
-                "priority": existing_order.priority,
-                "idempotency_hit": True
-            }
+        existing = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
+        if existing:
+            await logger.info(f"Idempotency HIT for key {idemp_key}. Returning existing order {existing.id}.")
+            return _existing_order_response(existing)
 
-    # 2. Concurrency-safe stock reservation in Product service
-    # Reserve stock directly via DB atomic update or Product Service API
-    primary_pid = payload.product_id or (payload.items[0]["product_id"] if payload.items else 1)
-    primary_qty = payload.quantity if payload.quantity > 0 else 1
-    
-    # Atomic reservation in PostgreSQL products table
-    # Wrapped in try/except for SQLite test-environment compatibility (no RETURNING clause)
-    try:
-        res = db.execute(
-            text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
-            {"qty": primary_qty, "id": primary_pid}
-        ).fetchone()
-        
-        if not res:
-            # Check available stock
-            try:
-                prod_row = db.execute(text("SELECT stock, name FROM products WHERE id = :id"), {"id": primary_pid}).fetchone()
-            except Exception:
-                prod_row = None
-            available = prod_row[0] if prod_row else 0
-            pname = prod_row[1] if prod_row else f"ID {primary_pid}"
-            raise HTTPException(
-                status_code=409, 
-                detail=f"Insufficient stock for '{pname}'. Available: {available}, Requested: {primary_qty}"
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Products table may not exist in test environments — treat as no stock
-        raise HTTPException(status_code=409, detail=f"Stock check failed: {str(e)[:100]}")
+    lines = _parse_lines(payload)
+    primary_pid, primary_qty = next(iter(lines.items()))
 
-    # 3. Create persistent Order
-    new_order = models.Order(
-        user_id=payload.user_id,
-        product_id=primary_pid,
-        quantity=primary_qty,
-        total_price=payload.total_price,
-        priority=payload.priority,
-        status="paid",  # Sandbox payment auto-confirmed on placement
-        items=payload.items,
-        idempotency_key=idemp_key
+    # 1. Persist first, so every outcome (and every crash) leaves a record to clean up.
+    order = models.Order(
+        user_id=payload.user_id, product_id=primary_pid, quantity=primary_qty,
+        total_price=payload.total_price, priority=payload.priority, status="pending",
+        items=payload.items, reserved_lines=[], idempotency_key=idemp_key,
     )
-    db.add(new_order)
-    db.commit()
-    db.refresh(new_order)
+    db.add(order)
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request with the same idempotency key won the race.
+        db.rollback()
+        existing = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
+        if existing:
+            return _existing_order_response(existing)
+        raise
+    db.refresh(order)
 
-    # 4. Enqueue into Min Heap Priority Queue (DSA #3)
-    order_info = {
-        "id": new_order.id,
-        "user_id": new_order.user_id,
-        "product_id": primary_pid,
-        "quantity": primary_qty,
-        "total_price": new_order.total_price,
-        "priority": payload.priority,
-        "status": new_order.status,
-        "type": "Express" if payload.priority == 1 else ("Priority" if payload.priority == 2 else "Standard")
-    }
-    order_queue.push(payload.priority, order_info)
+    # 2. Reserve stock for EVERY item via the Product service; record each line as it is taken.
+    try:
+        for pid, qty in lines.items():
+            await run_in_threadpool(clients.reserve_stock, pid, qty)
+            order.reserved_lines = (order.reserved_lines or []) + [{"product_id": pid, "quantity": qty}]
+            db.commit()
+    except clients.ServiceError as e:
+        if not await run_in_threadpool(_release_held, db, order):
+            await logger.error(f"Order {order.id}: stock release incomplete; the expiry sweep will retry.")
+        _set_status(db, order, "failed", e.detail)
+        raise HTTPException(status_code=e.status_code if e.status_code in (404, 409) else 503, detail=e.detail)
+    _set_status(db, order, "reserved")
+
+    # 3. Take payment.
+    pay_key = idemp_key or f"order-{order.id}"
+    try:
+        payment = await run_in_threadpool(
+            _charge_with_one_retry, order.id, payload.total_price, payload.payment_method, pay_key
+        )
+    except clients.ServiceError as e:
+        if not await run_in_threadpool(_release_held, db, order):
+            await logger.error(f"Order {order.id}: stock release incomplete; the expiry sweep will retry.")
+        _set_status(db, order, "payment_failed", e.detail)
+        await logger.warning(f"Payment failed for order {order.id}: {e.detail}")
+        raise HTTPException(status_code=402 if e.status_code == 402 else 503, detail=e.detail)
+
+    # 4. Mark paid. If we cannot record it, undo the charge and the reservation.
+    try:
+        order.status = "paid"
+        order.payment_txn_id = payment.get("transaction_id")
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        txn = payment.get("transaction_id")
+        try:
+            await run_in_threadpool(clients.refund, txn)
+        except clients.ServiceError as e:
+            await logger.error(f"Order {order.id}: charged {txn} but could not record or refund it: {e.detail}")
+        try:
+            db.refresh(order)
+            await run_in_threadpool(_release_held, db, order)
+            _set_status(db, order, "failed", f"Could not record payment: {exc.__class__.__name__}")
+        except Exception:
+            db.rollback()
+        raise HTTPException(status_code=500, detail="Order could not be completed; payment was refunded")
+    db.refresh(order)
+
+    order_queue.push(order.priority, {
+        "id": order.id, "user_id": order.user_id, "product_id": primary_pid, "quantity": primary_qty,
+        "total_price": order.total_price, "priority": order.priority, "status": order.status,
+        "type": "Express" if order.priority == 1 else ("Priority" if order.priority == 2 else "Standard"),
+    })
     heap_stats["total_enqueued"] += 1
-
-    await logger.info(f"Order {new_order.id} placed and pushed to Min Heap priority queue (Priority: {payload.priority}).")
+    await logger.info(f"Order {order.id} paid ({order.payment_txn_id}) and queued (priority {order.priority}).")
 
     return {
-        "message": "Order successfully created and queued in Min Heap",
-        "order_id": new_order.id,
-        "status": new_order.status,
-        "priority": new_order.priority,
-        "total_price": new_order.total_price,
+        "message": "Order successfully created, paid and queued in Min Heap",
+        "order_id": order.id,
+        "status": order.status,
+        "priority": order.priority,
+        "total_price": order.total_price,
+        "payment_status": payment.get("status"),
+        "payment_transaction_id": order.payment_txn_id,
         "queue_size": order_queue.size(),
         "dsa": "Min Heap Priority Queue",
         "complexity": "O(log n)"
     }
+
+
+def _remove_from_queue(order_id: int):
+    kept = [(p, d) for p, d in order_queue.heap if d.get("id") != order_id]
+    order_queue.heap = []
+    for p, d in kept:
+        order_queue.push(p, d)
+
+
+@app.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: int, db: Session = Depends(get_db)):
+    """Cancel a paid order that has not been delivered: refund the payment, return the stock."""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status in ("cancelled", "refunded"):
+        return {"order_id": order.id, "status": order.status, "message": "Already cancelled"}
+    if order.status != "paid":
+        raise HTTPException(status_code=409, detail=f"Order in status '{order.status}' cannot be cancelled")
+
+    if order.payment_txn_id:
+        try:
+            await run_in_threadpool(clients.refund, order.payment_txn_id)
+        except clients.ServiceError as e:
+            raise HTTPException(status_code=502, detail=f"Refund failed, order not cancelled: {e.detail}")
+    _remove_from_queue(order.id)
+    _set_status(db, order, "refunded" if order.payment_txn_id else "cancelled")
+    if not await run_in_threadpool(_release_held, db, order):
+        await logger.error(f"Order {order.id}: refunded but stock release incomplete; sweep will retry.")
+    return {"order_id": order.id, "status": order.status, "stock_returned": not order.reserved_lines}
+
+
+def expire_stale_orders(db: Session, now: Optional[datetime] = None) -> Dict[str, List[int]]:
+    """Clean up after crashes and failed releases.
+    - pending/reserved orders older than ORDER_EXPIRY_MINUTES: release stock, mark `expired`
+    - failed/cancelled/refunded orders that still hold stock (a release failed earlier): retry the release
+    """
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=ORDER_EXPIRY_MINUTES)
+    expired, released = [], []
+
+    for o in db.query(models.Order).filter(models.Order.status.in_(HOLDING_STATES)).all():
+        created = o.created_at
+        if created is None:
+            continue
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        if created > cutoff:
+            continue
+        if _release_held(db, o):
+            _set_status(db, o, "expired", "Expired before payment completed")
+            expired.append(o.id)
+
+    for o in db.query(models.Order).filter(models.Order.status.in_(RELEASED_STATES)).all():
+        if o.reserved_lines and _release_held(db, o):
+            released.append(o.id)
+    return {"expired": expired, "stock_released": released}
+
+
+@app.post("/orders/expire")
+async def expire_orders_now(db: Session = Depends(get_db)):
+    return await run_in_threadpool(expire_stale_orders, db)
+
+
+async def _expiry_loop():
+    while True:
+        await asyncio.sleep(EXPIRY_SWEEP_SECONDS)
+        db = None
+        try:
+            db = database.SessionLocal()
+            result = await run_in_threadpool(expire_stale_orders, db)
+            if result["expired"] or result["stock_released"]:
+                await logger.info(f"Expiry sweep: {result}")
+        except Exception as e:
+            await logger.warning(f"Expiry sweep failed: {e}")
+        finally:
+            if db:
+                db.close()
 
 # ─── Static/specific routes BEFORE dynamic {order_id} to avoid path conflicts ──
 
@@ -222,29 +392,26 @@ async def process_next_order(db: Session = Depends(get_db)):
     """
     Process highest priority order from Min Heap (DSA #3 pop).
     Express orders (priority 1) are popped before Standard (priority 3).
+    Orders that were cancelled/refunded since being queued are skipped.
     """
-    if order_queue.is_empty():
-        return {"message": "Queue is empty. No orders to process.", "processed": None}
-    
-    priority, order_data = order_queue.pop()
-    heap_stats["total_processed"] += 1
-    
-    # Update status to delivered in database
-    db.execute(
-        text("UPDATE orders SET status = 'delivered' WHERE id = :id"),
-        {"id": order_data["id"]}
-    )
-    db.commit()
-    
-    await logger.info(f"Min Heap processed order {order_data['id']} (Priority: {priority}).")
-    return {
-        "message": f"Processed highest priority order {order_data['id']}",
-        "processed_order": order_data,
-        "priority_level": priority,
-        "remaining_queue_size": order_queue.size(),
-        "dsa": "Min Heap Pop",
-        "complexity": "O(log n)"
-    }
+    while not order_queue.is_empty():
+        priority, order_data = order_queue.pop()
+        order = db.query(models.Order).filter(models.Order.id == order_data["id"]).first()
+        if not order or order.status != "paid":
+            continue
+        heap_stats["total_processed"] += 1
+        order.status = "delivered"
+        db.commit()
+        await logger.info(f"Min Heap processed order {order.id} (Priority: {priority}).")
+        return {
+            "message": f"Processed highest priority order {order.id}",
+            "processed_order": order_data,
+            "priority_level": priority,
+            "remaining_queue_size": order_queue.size(),
+            "dsa": "Min Heap Pop",
+            "complexity": "O(log n)"
+        }
+    return {"message": "Queue is empty. No orders to process.", "processed": None}
 
 @app.get("/orders/user/{user_id}")
 def get_user_orders(user_id: int, db: Session = Depends(get_db)):
@@ -255,13 +422,13 @@ def get_user_orders(user_id: int, db: Session = Depends(get_db)):
     orders = db.query(models.Order).filter(models.Order.user_id == user_id).order_by(models.Order.id.desc()).all()
     results = []
     for o in orders:
-        # Join product name if available
-        p_row = db.execute(text("SELECT name, image_url, price FROM products WHERE id = :id"), {"id": o.product_id}).fetchone()
+        items = o.items or []
+        first = items[0] if items else {}
         results.append({
             "id": o.id,
             "product_id": o.product_id,
-            "product_name": p_row[0] if p_row else f"Product #{o.product_id}",
-            "image_url": p_row[1] if p_row else None,
+            "product_name": first.get("name") or f"Product #{o.product_id}",
+            "items": items,
             "quantity": o.quantity,
             "total_price": o.total_price,
             "priority": o.priority,

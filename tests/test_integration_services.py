@@ -274,7 +274,10 @@ def test_cart_clear(cart_client):
 # ════════════════════════════════════════════════════════════════════════════
 @pytest.fixture(scope="module")
 def payment_client():
+    # The payment service now persists payments, so give it an in-memory database.
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     mod = load_service_app("payment_service")
+    mod.Base.metadata.create_all(bind=mod.engine)
     return TestClient(mod.app, raise_server_exceptions=False)
 
 
@@ -474,14 +477,14 @@ def test_order_health(order_client):
 
 
 @pytest.mark.integration
-def test_order_create(order_client):
-    # The order service's atomic stock check uses products table which may not exist in SQLite test.
-    # Use a direct DB insert to add a product row first, then place order.
-    from sqlalchemy import text as sqla_text
-    # We override get_db so we can't easily pre-insert; just verify endpoint accepts JSON body
+def test_order_create(order_client, monkeypatch):
+    # Stock is owned by the Product service, so fake its API instead of a products table.
+    import app.clients as clients
+    monkeypatch.setattr(clients, "reserve_stock", lambda pid, qty: {"status": "reserved"})
+    monkeypatch.setattr(clients, "release_stock", lambda pid, qty: {"status": "released"})
+    monkeypatch.setattr(clients, "charge", lambda *a, **k: {"status": "success", "transaction_id": "txn-x"})
     r = order_client.post("/orders", json={"user_id": 1, "product_id": 501, "quantity": 1, "total_price": 100.0, "priority": 1})
-    # Either 201 (success) or 409 (no stock - expected in empty test DB); both are valid
-    assert r.status_code in (201, 409)
+    assert r.status_code == 201
 
 
 @pytest.mark.integration
