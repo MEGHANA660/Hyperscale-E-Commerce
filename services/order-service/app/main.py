@@ -14,6 +14,7 @@ from sqlalchemy import text
 from . import models
 from . import database
 from . import clients
+import uuid
 from starlette.concurrency import run_in_threadpool
 from .database import engine, get_db, init_db
 from shared.dsa.min_heap import MinHeap
@@ -63,6 +64,7 @@ logger = CoreLogger("order-service")
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    database.ensure_columns()
     await logger.connect()
     db = None
     try:
@@ -103,6 +105,7 @@ class OrderCreate(BaseModel):
     quantity: int = 1
     total_price: float = 0.0
     priority: int = 3  # 1: Express (2hr), 2: Priority (Next day), 3: Standard
+    payment_method: str = "upi"
     items: Optional[List[Dict[str, Any]]] = None
     idempotency_key: Optional[str] = None
 
@@ -123,18 +126,20 @@ async def create_order(
         existing_order = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
         if existing_order:
             await logger.info(f"Idempotency HIT for key {idemp_key}. Returning existing order {existing_order.id}.")
+            if existing_order.status == "payment_failed":
+                raise HTTPException(status_code=402, detail=existing_order.failure_reason or "Payment failed")
             return {
                 "message": "Order already processed (idempotent response)",
                 "order_id": existing_order.id,
                 "status": existing_order.status,
                 "total_price": existing_order.total_price,
                 "priority": existing_order.priority,
+                "payment_transaction_id": existing_order.payment_txn_id,
                 "idempotency_hit": True
             }
 
     # 2. Reserve stock for EVERY line item, all-or-nothing.
-    # Duplicate product ids are merged; all decrements share one DB transaction,
-    # so if any item is short the rollback restores the items reserved before it.
+    # Duplicate product ids are merged before reserving.
     lines = {}
     for it in (payload.items or []):
         try:
@@ -164,14 +169,39 @@ async def create_order(
 
     primary_pid, primary_qty = next(iter(lines.items()))
 
-    # 3. Create persistent Order
+    # 3. Take payment. The order is only `paid` if the Payment service says so.
+    pay_key = idemp_key or f"order-{uuid.uuid4().hex}"
+    try:
+        payment = await run_in_threadpool(
+            clients.charge, pay_key, payload.total_price, payload.payment_method, pay_key
+        )
+    except clients.ServiceError as e:
+        # Payment failed: give the stock back and keep a record of the failed attempt.
+        for pid, qty in reserved:
+            try:
+                await run_in_threadpool(clients.release_stock, pid, qty)
+            except clients.ServiceError as rel_err:
+                await logger.error(f"Could not release {qty} of product {pid} after payment failure: {rel_err.detail}")
+        failed = models.Order(
+            user_id=payload.user_id, product_id=primary_pid, quantity=primary_qty,
+            total_price=payload.total_price, priority=payload.priority,
+            status="payment_failed", items=payload.items, failure_reason=e.detail[:250],
+            idempotency_key=idemp_key,
+        )
+        db.add(failed)
+        db.commit()
+        await logger.warning(f"Payment failed for order {failed.id}: {e.detail}")
+        raise HTTPException(status_code=402 if e.status_code == 402 else 503, detail=e.detail)
+
+    # 4. Create persistent Order
     new_order = models.Order(
         user_id=payload.user_id,
         product_id=primary_pid,
         quantity=primary_qty,
         total_price=payload.total_price,
         priority=payload.priority,
-        status="paid",  # Sandbox payment auto-confirmed on placement
+        status="paid",
+        payment_txn_id=payment.get("transaction_id"),
         items=payload.items,
         idempotency_key=idemp_key
     )
@@ -179,7 +209,7 @@ async def create_order(
     db.commit()
     db.refresh(new_order)
 
-    # 4. Enqueue into Min Heap Priority Queue (DSA #3)
+    # 5. Enqueue into Min Heap Priority Queue (DSA #3)
     order_info = {
         "id": new_order.id,
         "user_id": new_order.user_id,
@@ -201,6 +231,8 @@ async def create_order(
         "status": new_order.status,
         "priority": new_order.priority,
         "total_price": new_order.total_price,
+        "payment_status": payment.get("status"),
+        "payment_transaction_id": new_order.payment_txn_id,
         "queue_size": order_queue.size(),
         "dsa": "Min Heap Priority Queue",
         "complexity": "O(log n)"

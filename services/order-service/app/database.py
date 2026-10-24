@@ -37,3 +37,22 @@ def init_db():
             print(f"DB init attempt {attempt + 1}/10 failed: {e}")
             time.sleep(3)
     return False
+
+
+_NEW_COLUMNS = {"payment_txn_id": "VARCHAR", "failure_reason": "VARCHAR"}
+
+
+def ensure_columns():
+    """Add columns introduced after the `orders` table was first created."""
+    from sqlalchemy import inspect, text
+    try:
+        insp = inspect(engine)
+        if "orders" not in insp.get_table_names():
+            return
+        existing = {c["name"] for c in insp.get_columns("orders")}
+        with engine.begin() as conn:
+            for name, ddl in _NEW_COLUMNS.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE orders ADD COLUMN {name} {ddl}"))
+    except Exception as e:
+        print(f"ensure_columns skipped: {e}")

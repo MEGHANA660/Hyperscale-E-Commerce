@@ -274,7 +274,10 @@ def test_cart_clear(cart_client):
 # ════════════════════════════════════════════════════════════════════════════
 @pytest.fixture(scope="module")
 def payment_client():
+    # The payment service now persists payments, so give it an in-memory database.
+    os.environ["DATABASE_URL"] = "sqlite:///:memory:"
     mod = load_service_app("payment_service")
+    mod.Base.metadata.create_all(bind=mod.engine)
     return TestClient(mod.app, raise_server_exceptions=False)
 
 
@@ -479,6 +482,7 @@ def test_order_create(order_client, monkeypatch):
     import app.clients as clients
     monkeypatch.setattr(clients, "reserve_stock", lambda pid, qty: {"status": "reserved"})
     monkeypatch.setattr(clients, "release_stock", lambda pid, qty: {"status": "released"})
+    monkeypatch.setattr(clients, "charge", lambda *a, **k: {"status": "success", "transaction_id": "txn-x"})
     r = order_client.post("/orders", json={"user_id": 1, "product_id": 501, "quantity": 1, "total_price": 100.0, "priority": 1})
     assert r.status_code == 201
 

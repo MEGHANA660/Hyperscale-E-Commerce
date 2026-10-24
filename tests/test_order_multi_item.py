@@ -8,6 +8,7 @@ class FakeProductService:
     def __init__(self, stock):
         self.stock = dict(stock)
         self.calls = []
+        self.decline = False
 
     def reserve(self, pid, qty):
         import app.clients as c
@@ -18,6 +19,13 @@ class FakeProductService:
             raise c.ServiceError(409, f"Insufficient stock for product {pid}")
         self.stock[pid] -= qty
         return {"status": "reserved"}
+
+    def charge(self, order_ref, amount, method, key):
+        import app.clients as c
+        self.calls.append(("charge", amount, method, key))
+        if self.decline:
+            raise c.ServiceError(402, "Payment declined")
+        return {"status": "success", "transaction_id": "txn-test"}
 
     def release(self, pid, qty):
         self.calls.append(("release", pid, qty))
@@ -32,6 +40,7 @@ def order_env(monkeypatch):
     fake = FakeProductService({1: 5, 2: 5, 3: 1})
     monkeypatch.setattr(clients, "reserve_stock", fake.reserve)
     monkeypatch.setattr(clients, "release_stock", fake.release)
+    monkeypatch.setattr(clients, "charge", fake.charge)
     yield client, (lambda pid: fake.stock[pid]), fake
     mod.app.dependency_overrides.clear()
 
@@ -103,3 +112,52 @@ def test_order_service_never_touches_products_table(order_env):
     import inspect
     src = inspect.getsource(m)
     assert "UPDATE products" not in src and "FROM products" not in src
+
+
+@pytest.mark.integration
+def test_successful_order_is_charged_and_stores_transaction(order_env):
+    client, stock, fake = order_env
+    r = client.post("/orders", json=_order([{"product_id": 1, "quantity": 1}]))
+    assert r.status_code == 201
+    body = r.json()
+    assert body["status"] == "paid"
+    assert body["payment_transaction_id"] == "txn-test"
+    assert any(c[0] == "charge" and c[1] == 100.0 for c in fake.calls)
+
+
+@pytest.mark.integration
+def test_declined_payment_returns_402_releases_stock_and_is_not_paid(order_env):
+    client, stock, fake = order_env
+    fake.decline = True
+    r = client.post("/orders", json=_order([{"product_id": 1, "quantity": 2}, {"product_id": 2, "quantity": 1}]))
+    assert r.status_code == 402
+    assert stock(1) == 5 and stock(2) == 5  # everything given back
+    orders = client.get("/orders/user/7").json()["orders"]
+    assert len(orders) == 1 and orders[0]["status"] == "payment_failed"
+
+
+@pytest.mark.integration
+def test_payment_service_down_gives_503_and_no_paid_order(order_env, monkeypatch):
+    client, stock, fake = order_env
+    import app.clients as clients
+
+    def down(*a, **k):
+        raise clients.ServiceError(503, "Payment service unreachable")
+
+    monkeypatch.setattr(clients, "charge", down)
+    r = client.post("/orders", json=_order([{"product_id": 1, "quantity": 1}]))
+    assert r.status_code == 503
+    assert stock(1) == 5
+    assert all(o["status"] != "paid" for o in client.get("/orders/user/7").json()["orders"])
+
+
+@pytest.mark.integration
+def test_retry_with_same_key_does_not_charge_twice(order_env):
+    client, stock, fake = order_env
+    body = _order([{"product_id": 1, "quantity": 1}])
+    body["idempotency_key"] = "key-1"
+    assert client.post("/orders", json=body).status_code == 201
+    r2 = client.post("/orders", json=body)
+    assert r2.json()["idempotency_hit"] is True
+    assert sum(1 for c in fake.calls if c[0] == "charge") == 1
+    assert stock(1) == 4

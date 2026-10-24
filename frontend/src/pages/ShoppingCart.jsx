@@ -177,6 +177,7 @@ export default function ShoppingCart() {
       quantity: cart[0]?.qty || 1,
       total_price: grandTotal,
       priority: orderType,
+      payment_method: paymentMethod,
       items: cart.map(i => ({ product_id: i.id, name: i.name, quantity: i.qty, price: i.price })),
       idempotency_key: idempKey
     }

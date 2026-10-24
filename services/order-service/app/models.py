@@ -11,8 +11,10 @@ class Order(Base):
     quantity = Column(Integer)
     total_price = Column(Float)
     priority = Column(Integer)  # 1: Express, 2: Premium, 3: Standard
-    status = Column(String, default="pending") # pending, paid, shipped, delivered, cancelled, failed
+    status = Column(String, default="pending") # paid, payment_failed, delivered, ...
     items = Column(JSON, nullable=True)
+    payment_txn_id = Column(String, nullable=True)
+    failure_reason = Column(String, nullable=True)
     idempotency_key = Column(String, unique=True, index=True, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

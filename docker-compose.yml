@@ -182,10 +182,13 @@ services:
         condition: service_healthy
       product-service:
         condition: service_started
+      payment-service:
+        condition: service_started
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/hyperscale
       - MONGO_URI=mongodb://mongodb:27017
       - PRODUCT_SERVICE_URL=http://product-service:8000
+      - PAYMENT_SERVICE_URL=http://payment-service:8000
 
   recommendation-service:
     build:
