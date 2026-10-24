@@ -110,6 +110,7 @@ export default function ShoppingCart() {
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [processingOrder, setProcessingOrder] = useState(false)
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null)
+  const [orderError, setOrderError] = useState(null)
   
   // Checkout flow step: 1 = Review Cart, 2 = Shipping & Payment Info
   const [step, setStep] = useState(1)
@@ -154,6 +155,7 @@ export default function ShoppingCart() {
 
   const placeOrder = async () => {
     setProcessingOrder(true)
+    setOrderError(null)
     const idempKey = `idemp-${Date.now()}-${Math.floor(Math.random() * 100000)}`
     
     // Maintain Min Heap queue visualization
@@ -181,24 +183,23 @@ export default function ShoppingCart() {
 
     try {
       const resp = await orderApi.placeOrder(orderPayload, idempKey)
+      if (!resp || resp.order_id == null) {
+        throw new Error('The order service returned an invalid response.')
+      }
       setPlacedOrderDetails({
         id: `ORD-${resp.order_id}`,
         shipping: selectedShipping?.label,
         total: grandTotal,
         savings: totalSavings
       })
-    } catch (err) {
-      console.warn("Backend order-service call failed, using fallback:", err.message)
-      setPlacedOrderDetails({
-        id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-        shipping: selectedShipping?.label,
-        total: grandTotal,
-        savings: totalSavings
-      })
-    } finally {
-      setProcessingOrder(false)
       setOrderPlaced(true)
       clearCart()
+    } catch (err) {
+      // Never show a success screen for an order that was not saved.
+      console.warn('Order failed:', err.message)
+      setOrderError(err.message || 'Could not place your order. Please try again.')
+    } finally {
+      setProcessingOrder(false)
     }
   }
 
@@ -575,6 +576,12 @@ export default function ShoppingCart() {
                   <>Place Order</>
                 )}
               </button>
+            )}
+
+            {orderError && (
+              <div role="alert" id="order-error" className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
+                Order not placed: {orderError}. Your cart is unchanged — you have not been charged.
+              </div>
             )}
 
             <div className="flex items-center gap-1.5 justify-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
