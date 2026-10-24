@@ -23,6 +23,8 @@ spec:
               value: postgresql://postgres:postgres@postgres:5432/hyperscale
             - name: MONGO_URI
               value: mongodb://mongodb:27017
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8000
           readinessProbe:
             httpGet:
               path: /health

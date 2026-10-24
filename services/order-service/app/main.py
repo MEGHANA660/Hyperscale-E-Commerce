@@ -13,6 +13,8 @@ from sqlalchemy import text
 
 from . import models
 from . import database
+from . import clients
+from starlette.concurrency import run_in_threadpool
 from .database import engine, get_db, init_db
 from shared.dsa.min_heap import MinHeap
 from shared.core_logger.logger import CoreLogger
@@ -145,29 +147,20 @@ async def create_order(
     if not lines:  # legacy single-product payload
         lines[payload.product_id or 1] = payload.quantity if payload.quantity > 0 else 1
 
+    # Stock is owned by the Product service: reserve each line through its API.
+    # If any line fails, give back the lines already reserved.
+    reserved = []
     try:
         for pid, qty in lines.items():
-            res = db.execute(
-                text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
-                {"qty": qty, "id": pid}
-            ).fetchone()
-            if not res:
-                try:
-                    prod_row = db.execute(text("SELECT stock, name FROM products WHERE id = :id"), {"id": pid}).fetchone()
-                except Exception:
-                    prod_row = None
-                available = prod_row[0] if prod_row else 0
-                pname = prod_row[1] if prod_row else f"ID {pid}"
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Insufficient stock for '{pname}'. Available: {available}, Requested: {qty}"
-                )
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=409, detail=f"Stock check failed: {str(e)[:100]}")
+            await run_in_threadpool(clients.reserve_stock, pid, qty)
+            reserved.append((pid, qty))
+    except clients.ServiceError as e:
+        for pid, qty in reserved:
+            try:
+                await run_in_threadpool(clients.release_stock, pid, qty)
+            except clients.ServiceError as rel_err:
+                await logger.error(f"Could not release {qty} of product {pid} after failed order: {rel_err.detail}")
+        raise HTTPException(status_code=e.status_code if e.status_code in (404, 409) else 503, detail=e.detail)
 
     primary_pid, primary_qty = next(iter(lines.items()))
 
@@ -265,13 +258,13 @@ def get_user_orders(user_id: int, db: Session = Depends(get_db)):
     orders = db.query(models.Order).filter(models.Order.user_id == user_id).order_by(models.Order.id.desc()).all()
     results = []
     for o in orders:
-        # Join product name if available
-        p_row = db.execute(text("SELECT name, image_url, price FROM products WHERE id = :id"), {"id": o.product_id}).fetchone()
+        items = o.items or []
+        first = items[0] if items else {}
         results.append({
             "id": o.id,
             "product_id": o.product_id,
-            "product_name": p_row[0] if p_row else f"Product #{o.product_id}",
-            "image_url": p_row[1] if p_row else None,
+            "product_name": first.get("name") or f"Product #{o.product_id}",
+            "items": items,
             "quantity": o.quantity,
             "total_price": o.total_price,
             "priority": o.priority,
