@@ -580,7 +580,7 @@ export default function ShoppingCart() {
 
             {orderError && (
               <div role="alert" id="order-error" className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
-                Order not placed: {orderError}. Your cart is unchanged — you have not been charged.
+                Order not placed: {orderError}. Your cart has been kept so you can try again.
               </div>
             )}
 
