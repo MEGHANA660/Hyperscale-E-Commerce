@@ -130,36 +130,46 @@ async def create_order(
                 "idempotency_hit": True
             }
 
-    # 2. Concurrency-safe stock reservation in Product service
-    # Reserve stock directly via DB atomic update or Product Service API
-    primary_pid = payload.product_id or (payload.items[0]["product_id"] if payload.items else 1)
-    primary_qty = payload.quantity if payload.quantity > 0 else 1
-    
-    # Atomic reservation in PostgreSQL products table
-    # Wrapped in try/except for SQLite test-environment compatibility (no RETURNING clause)
+    # 2. Reserve stock for EVERY line item, all-or-nothing.
+    # Duplicate product ids are merged; all decrements share one DB transaction,
+    # so if any item is short the rollback restores the items reserved before it.
+    lines = {}
+    for it in (payload.items or []):
+        try:
+            pid, qty = int(it["product_id"]), int(it.get("quantity", 1))
+        except (KeyError, TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="Each item needs a numeric product_id and quantity")
+        if qty < 1:
+            raise HTTPException(status_code=422, detail=f"Invalid quantity for product {pid}")
+        lines[pid] = lines.get(pid, 0) + qty
+    if not lines:  # legacy single-product payload
+        lines[payload.product_id or 1] = payload.quantity if payload.quantity > 0 else 1
+
     try:
-        res = db.execute(
-            text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
-            {"qty": primary_qty, "id": primary_pid}
-        ).fetchone()
-        
-        if not res:
-            # Check available stock
-            try:
-                prod_row = db.execute(text("SELECT stock, name FROM products WHERE id = :id"), {"id": primary_pid}).fetchone()
-            except Exception:
-                prod_row = None
-            available = prod_row[0] if prod_row else 0
-            pname = prod_row[1] if prod_row else f"ID {primary_pid}"
-            raise HTTPException(
-                status_code=409, 
-                detail=f"Insufficient stock for '{pname}'. Available: {available}, Requested: {primary_qty}"
-            )
+        for pid, qty in lines.items():
+            res = db.execute(
+                text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
+                {"qty": qty, "id": pid}
+            ).fetchone()
+            if not res:
+                try:
+                    prod_row = db.execute(text("SELECT stock, name FROM products WHERE id = :id"), {"id": pid}).fetchone()
+                except Exception:
+                    prod_row = None
+                available = prod_row[0] if prod_row else 0
+                pname = prod_row[1] if prod_row else f"ID {pid}"
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Insufficient stock for '{pname}'. Available: {available}, Requested: {qty}"
+                )
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
-        # Products table may not exist in test environments — treat as no stock
+        db.rollback()
         raise HTTPException(status_code=409, detail=f"Stock check failed: {str(e)[:100]}")
+
+    primary_pid, primary_qty = next(iter(lines.items()))
 
     # 3. Create persistent Order
     new_order = models.Order(

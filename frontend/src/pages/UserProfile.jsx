@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
-import { userApi, orderApi, MOCK } from '../services/api'
+import { userApi, orderApi, MOCK, getCurrentUserId } from '../services/api'
 
 const USER_ID = 1 // default seeded user 'alice_dev'
 
@@ -31,7 +31,7 @@ export default function UserProfile() {
 
   const fetchOrders = async () => {
     try {
-      const data = await orderApi.getUserOrders(USER_ID)
+      const data = await orderApi.getUserOrders(getCurrentUserId())
       if (data && data.orders && data.orders.length > 0) {
         setOrders(data.orders.map(o => ({
           id: String(o.id),

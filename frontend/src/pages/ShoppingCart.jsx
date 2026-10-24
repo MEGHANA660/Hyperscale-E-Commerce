@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package, Check, ShieldCheck, CreditCard, Compass, ArrowLeft, Star } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { orderApi, analyticsApi, MOCK } from '../services/api'
+import { orderApi, analyticsApi, MOCK, getCurrentUserId } from '../services/api'
 
 // Product image map (same source as ProductCard — no backend needed)
 const IMAGE_MAP = {
@@ -172,7 +172,7 @@ export default function ShoppingCart() {
     window.__lastHeapQueue = queue
 
     const orderPayload = {
-      user_id: 1,
+      user_id: getCurrentUserId(),
       product_id: cart[0]?.id || 1,
       quantity: cart[0]?.qty || 1,
       total_price: grandTotal,

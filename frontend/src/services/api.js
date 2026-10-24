@@ -12,6 +12,23 @@ const SERVICES = {
   auth:     'http://localhost:5001',
 }
 
+/**
+ * Id of the person placing orders. Uses a logged-in id if one is stored
+ * (`hsc_user_id`), otherwise a persistent per-browser guest id, so different
+ * shoppers no longer all become user 1.
+ */
+export function getCurrentUserId() {
+  try {
+    const stored = parseInt(localStorage.getItem('hsc_user_id') || '', 10)
+    if (Number.isInteger(stored) && stored > 0) return stored
+    const guest = 1000000 + Math.floor(Math.random() * 900000000)
+    localStorage.setItem('hsc_user_id', String(guest))
+    return guest
+  } catch {
+    return 1000000 + Math.floor(Math.random() * 900000000)
+  }
+}
+
 // Generic fetch helper with error handling
 async function apiFetch(url, options = {}) {
   try {
@@ -100,7 +117,7 @@ export const orderApi = {
   },
 
   /** Get customer orders history (for My Orders) */
-  getUserOrders: (userId = 1) =>
+  getUserOrders: (userId = getCurrentUserId()) =>
     apiFetch(`${SERVICES.orders}/orders/user/${userId}`),
 
   /** Get order queue status */
