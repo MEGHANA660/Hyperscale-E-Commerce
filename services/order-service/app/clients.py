@@ -43,12 +43,14 @@ def _post(url: str, body: dict, headers: dict | None = None, name: str = "Servic
     return resp.json()
 
 
-def reserve_stock(product_id: int, quantity: int) -> dict:
-    return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/reserve", {"quantity": quantity}, name="Product service")
+def reserve_stock(product_id: int, quantity: int, order_ref: str | None = None) -> dict:
+    return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/reserve",
+                 {"quantity": quantity, "order_ref": order_ref}, name="Product service")
 
 
-def release_stock(product_id: int, quantity: int) -> dict:
-    return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/release", {"quantity": quantity}, name="Product service")
+def release_stock(product_id: int, quantity: int, order_ref: str | None = None) -> dict:
+    return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/release",
+                 {"quantity": quantity, "order_ref": order_ref}, name="Product service")
 
 
 def charge(order_ref: str, amount: float, payment_method: str, idempotency_key: str) -> dict:

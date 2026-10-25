@@ -480,8 +480,8 @@ def test_order_health(order_client):
 def test_order_create(order_client, monkeypatch):
     # Stock is owned by the Product service, so fake its API instead of a products table.
     import app.clients as clients
-    monkeypatch.setattr(clients, "reserve_stock", lambda pid, qty: {"status": "reserved"})
-    monkeypatch.setattr(clients, "release_stock", lambda pid, qty: {"status": "released"})
+    monkeypatch.setattr(clients, "reserve_stock", lambda pid, qty, order_ref=None: {"status": "reserved"})
+    monkeypatch.setattr(clients, "release_stock", lambda pid, qty, order_ref=None: {"status": "released"})
     monkeypatch.setattr(clients, "charge", lambda *a, **k: {"status": "success", "transaction_id": "txn-x"})
     r = order_client.post("/orders", json={"user_id": 1, "product_id": 501, "quantity": 1, "total_price": 100.0, "priority": 1})
     assert r.status_code == 201

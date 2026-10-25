@@ -352,6 +352,18 @@ async def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
 # ─── Inventory Atomic Stock Operations (Phase 2 & End-to-End) ───────────────────
 class StockRequest(BaseModel):
     quantity: int = 1
+    # When given, the call is idempotent per (order_ref, product): a retried reserve
+    # never takes stock twice and a retried release never returns it twice.
+    order_ref: Optional[str] = None
+
+
+def _invalidate_cache(product_id: int):
+    if redis_client:
+        try:
+            redis_client.delete(f"product:{product_id}")
+        except Exception:
+            pass
+
 
 @app.post("/products/{product_id}/reserve")
 def reserve_stock(product_id: int, req: StockRequest, db: Session = Depends(get_db)):
@@ -362,63 +374,86 @@ def reserve_stock(product_id: int, req: StockRequest, db: Session = Depends(get_
     """
     if req.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
-    
+
+    if req.order_ref:
+        prior = db.query(models.StockReservation).filter_by(order_ref=req.order_ref, product_id=product_id).first()
+        if prior:
+            if prior.state == "released":
+                raise HTTPException(status_code=409, detail="Reservation was already released for this order")
+            return {"status": "reserved", "product_id": product_id, "quantity_reserved": prior.quantity,
+                    "idempotent_replay": True}
+
     result = db.execute(
         text("UPDATE products SET stock = stock - :qty WHERE id = :id AND stock >= :qty RETURNING stock"),
         {"qty": req.quantity, "id": product_id}
     ).fetchone()
-    
+
     if not result:
+        db.rollback()
         prod = db.query(models.Product).filter(models.Product.id == product_id).first()
         if not prod:
             raise HTTPException(status_code=404, detail="Product not found")
         raise HTTPException(
-            status_code=409, 
+            status_code=409,
             detail=f"Insufficient stock for product '{prod.name}'. Available: {prod.stock}, Requested: {req.quantity}"
         )
-    
+
+    if req.order_ref:
+        # Same transaction as the decrement: both happen or neither does.
+        db.add(models.StockReservation(order_ref=req.order_ref, product_id=product_id,
+                                       quantity=req.quantity, state="reserved"))
     db.commit()
-    remaining = result[0]
-    if redis_client:
-        try:
-            redis_client.delete(f"product:{product_id}")
-        except Exception:
-            pass
+    _invalidate_cache(product_id)
     return {
         "status": "reserved",
         "product_id": product_id,
         "quantity_reserved": req.quantity,
-        "remaining_stock": remaining
+        "remaining_stock": result[0]
     }
+
 
 @app.post("/products/{product_id}/release")
 def release_stock(product_id: int, req: StockRequest, db: Session = Depends(get_db)):
     """Release reserved stock back to inventory upon payment cancellation or timeout."""
     if req.quantity <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be greater than 0")
-    
+
+    qty = req.quantity
+    if req.order_ref:
+        prior = db.query(models.StockReservation).filter_by(order_ref=req.order_ref, product_id=product_id).first()
+        if not prior:
+            # The reserve never reached us (e.g. it timed out first). Nothing to give back.
+            # Recording the tombstone stops a late-arriving reserve from taking stock afterwards.
+            db.add(models.StockReservation(order_ref=req.order_ref, product_id=product_id,
+                                           quantity=0, state="released"))
+            db.commit()
+            return {"status": "nothing_to_release", "product_id": product_id, "quantity_released": 0}
+        if prior.state == "released":
+            return {"status": "released", "product_id": product_id, "quantity_released": 0,
+                    "idempotent_replay": True}
+        qty = prior.quantity  # always give back exactly what was taken
+
     result = db.execute(
         text("UPDATE products SET stock = stock + :qty WHERE id = :id RETURNING stock"),
-        {"qty": req.quantity, "id": product_id}
+        {"qty": qty, "id": product_id}
     ).fetchone()
-    
+
     if not result:
+        db.rollback()
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
+    if req.order_ref:
+        prior.state = "released"
     db.commit()
-    if redis_client:
-        try:
-            redis_client.delete(f"product:{product_id}")
-        except Exception:
-            pass
+    _invalidate_cache(product_id)
     return {
         "status": "released",
         "product_id": product_id,
-        "quantity_released": req.quantity,
+        "quantity_released": qty,
         "current_stock": result[0]
     }
 
-# ─── Real DSA Metric Statistics Endpoints ─────────────────────────────────────
+
 @app.get("/bloom/stats")
 def get_bloom_stats(db: Session = Depends(get_db)):
     """Bloom Filter performance metrics."""

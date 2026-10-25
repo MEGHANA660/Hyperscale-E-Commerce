@@ -4,20 +4,37 @@ from test_integration_services import make_db_client
 
 
 class FakeProductService:
-    """Stands in for the Product service API. Note: the order DB has NO products table."""
+    """Stands in for the Product service API (same idempotency rules as the real one).
+    Note: the order DB has NO products table.
+
+    Knobs to simulate lost responses (the action happens, the caller sees a timeout):
+      lose_reserve_response_for = {product_id}   lose_release_response = True
+    """
     def __init__(self, stock):
         self.stock = dict(stock)
         self.calls = []
         self.decline = False
+        self.reservations = {}  # (order_ref, product_id) -> {"qty", "state"}
+        self.lose_reserve_response_for = set()
+        self.lose_release_response = False
 
-    def reserve(self, pid, qty):
+    def reserve(self, pid, qty, order_ref=None):
         import app.clients as c
         self.calls.append(("reserve", pid, qty))
+        key = (order_ref, pid)
+        if order_ref and key in self.reservations:
+            if self.reservations[key]["state"] == "released":
+                raise c.ServiceError(409, "Reservation for this order was already released")
+            return {"status": "reserved", "idempotent_replay": True}
         if pid not in self.stock:
             raise c.ServiceError(404, "Product not found")
         if self.stock[pid] < qty:
             raise c.ServiceError(409, f"Insufficient stock for product {pid}")
         self.stock[pid] -= qty
+        if order_ref:
+            self.reservations[key] = {"qty": qty, "state": "reserved"}
+        if pid in self.lose_reserve_response_for:
+            raise c.ServiceError(503, "Product service unreachable (response lost)")
         return {"status": "reserved"}
 
     def charge(self, order_ref, amount, method, key):
@@ -34,12 +51,23 @@ class FakeProductService:
             raise c.ServiceError(503, "Payment service unreachable")
         return {"status": "refunded"}
 
-    def release(self, pid, qty):
+    def release(self, pid, qty, order_ref=None):
+        import app.clients as c
         if getattr(self, "release_fails", False):
-            import app.clients as c
             raise c.ServiceError(503, "Product service unreachable")
         self.calls.append(("release", pid, qty))
+        key = (order_ref, pid)
+        if order_ref:
+            rec = self.reservations.get(key)
+            if rec is None:
+                return {"status": "nothing_to_release"}
+            if rec["state"] == "released":
+                return {"status": "released", "idempotent_replay": True}
+            qty = rec["qty"]
+            rec["state"] = "released"
         self.stock[pid] += qty
+        if self.lose_release_response:
+            raise c.ServiceError(503, "Product service unreachable (response lost)")
         return {"status": "released"}
 
 
@@ -105,10 +133,10 @@ def test_product_service_down_gives_503_and_rolls_back(order_env, monkeypatch):
     import app.clients as clients
     real = fake.reserve
 
-    def flaky(pid, qty):
+    def flaky(pid, qty, order_ref=None):
         if pid == 2:
             raise clients.ServiceError(503, "Product service unreachable")
-        return real(pid, qty)
+        return real(pid, qty, order_ref)
 
     monkeypatch.setattr(clients, "reserve_stock", flaky)
     r = client.post("/orders", json=_order([{"product_id": 1, "quantity": 2}, {"product_id": 2, "quantity": 1}]))
@@ -173,3 +201,13 @@ def test_retry_with_same_key_does_not_charge_twice(order_env):
     assert r2.json()["idempotency_hit"] is True
     assert sum(1 for c in fake.calls if c[0] == "charge") == 1
     assert stock(1) == 4
+
+
+@pytest.mark.integration
+def test_lost_reserve_response_does_not_leak_stock(order_env):
+    """Reserve succeeded at the Product service but the reply timed out."""
+    client, stock, fake = order_env
+    fake.lose_reserve_response_for = {2}
+    r = client.post("/orders", json=_order([{"product_id": 1, "quantity": 2}, {"product_id": 2, "quantity": 3}]))
+    assert r.status_code == 503
+    assert stock(1) == 5 and stock(2) == 5  # including the line whose reply was lost

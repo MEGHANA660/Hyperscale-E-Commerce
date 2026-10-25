@@ -105,7 +105,7 @@ def test_decline_is_not_retried(order_env, monkeypatch):
     assert sum(1 for c in fake.calls if c[0] == "charge") == 1
 
 
-def _stuck_order(status, minutes_old, lines):
+def _stuck_order(status, minutes_old, lines, fake=None):
     """Simulate a crash mid-saga: an order row that holds stock but never finished."""
     import app.models as models
     db = _db()
@@ -115,6 +115,9 @@ def _stuck_order(status, minutes_old, lines):
     db.commit()
     o.created_at = datetime.now(timezone.utc) - timedelta(minutes=minutes_old)
     db.commit()
+    if fake is not None:  # the Product service really did take this stock before the crash
+        for l in lines:
+            fake.reservations[(str(o.id), l["product_id"])] = {"qty": l["quantity"], "state": "reserved"}
     return o.id
 
 
@@ -122,7 +125,7 @@ def _stuck_order(status, minutes_old, lines):
 def test_stuck_order_expires_and_returns_stock(order_env):
     client, stock, fake = order_env
     fake.stock[1] -= 3  # the crashed request had taken 3 units
-    oid = _stuck_order("reserved", 60, [{"product_id": 1, "quantity": 3}])
+    oid = _stuck_order("reserved", 60, [{"product_id": 1, "quantity": 3}], fake)
     import app.main as m
     assert m.expire_stale_orders(_db())["expired"] == [oid]
     assert stock(1) == 5
@@ -133,7 +136,7 @@ def test_stuck_order_expires_and_returns_stock(order_env):
 def test_recent_in_flight_order_is_not_expired(order_env):
     client, stock, fake = order_env
     fake.stock[1] -= 3
-    oid = _stuck_order("reserved", 1, [{"product_id": 1, "quantity": 3}])
+    oid = _stuck_order("reserved", 1, [{"product_id": 1, "quantity": 3}], fake)
     import app.main as m
     assert m.expire_stale_orders(_db())["expired"] == []
     assert stock(1) == 2
@@ -166,3 +169,19 @@ def test_charge_taken_but_order_not_saved_is_refunded_and_stock_returned(order_e
     monkeypatch.setattr(Session, "commit", real_commit)
     orders = client.get("/orders/user/7").json()["orders"]
     assert [o["status"] for o in orders] == ["failed"]
+
+
+@pytest.mark.integration
+def test_release_retry_after_lost_reply_does_not_inflate_stock(order_env):
+    """Release worked but the reply timed out; the retry must not give the stock back twice."""
+    client, stock, fake = order_env
+    oid = _place(client, 1, 2)
+    assert stock(1) == 3
+    fake.lose_release_response = True
+    client.post(f"/orders/{oid}/cancel")          # release happened, reply lost -> still recorded as held
+    assert stock(1) == 5
+    fake.lose_release_response = False
+    import app.main as m
+    m.expire_stale_orders(_db())                  # sweep retries the release
+    assert stock(1) == 5                          # NOT 7
+    assert m.expire_stale_orders(_db())["stock_released"] == []
