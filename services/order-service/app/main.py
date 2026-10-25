@@ -144,7 +144,7 @@ def _release_held(db: Session, order: models.Order) -> bool:
     while lines:
         line = lines[0]
         try:
-            clients.release_stock(line["product_id"], line["quantity"])
+            clients.release_stock(line["product_id"], line["quantity"], str(order.id))
         except clients.ServiceError:
             return False
         lines = lines[1:]
@@ -227,12 +227,15 @@ async def create_order(
         raise
     db.refresh(order)
 
-    # 2. Reserve stock for EVERY item via the Product service; record each line as it is taken.
+    # 2. Reserve stock for EVERY item via the Product service (idempotent per order).
     try:
         for pid, qty in lines.items():
-            await run_in_threadpool(clients.reserve_stock, pid, qty)
+            # Write the intent BEFORE calling the Product service. If the call times out or we
+            # crash, the line is still on record, and releasing it later is safe because the
+            # Product service ignores a release for stock it never reserved.
             order.reserved_lines = (order.reserved_lines or []) + [{"product_id": pid, "quantity": qty}]
             db.commit()
+            await run_in_threadpool(clients.reserve_stock, pid, qty, str(order.id))
     except clients.ServiceError as e:
         if not await run_in_threadpool(_release_held, db, order):
             await logger.error(f"Order {order.id}: stock release incomplete; the expiry sweep will retry.")
