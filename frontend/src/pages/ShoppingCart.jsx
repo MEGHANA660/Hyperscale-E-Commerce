@@ -30,42 +30,6 @@ const IMAGE_MAP = {
   20:'https://images.unsplash.com/photo-1541643600914-78b084683702?auto=format&fit=crop&w=200&q=80',
 }
 
-// ─── Min Heap client-side logic preserved in background ────────────────────
-class MinHeap {
-  constructor() { this.heap = [] }
-  push(priority, data) {
-    this.heap.push([priority, data])
-    this._bubbleUp(this.heap.length - 1)
-  }
-  pop() {
-    if (!this.heap.length) return null
-    if (this.heap.length === 1) return this.heap.pop()
-    const root = this.heap[0]
-    this.heap[0] = this.heap.pop()
-    this._bubbleDown(0)
-    return root
-  }
-  size() { return this.heap.length }
-  _bubbleUp(i) {
-    const p = Math.floor((i - 1) / 2)
-    if (i > 0 && this.heap[i][0] < this.heap[p][0]) {
-      ;[this.heap[i], this.heap[p]] = [this.heap[p], this.heap[i]]
-      this._bubbleUp(p)
-    }
-  }
-  _bubbleDown(i) {
-    const l = 2 * i + 1, r = 2 * i + 2
-    let s = i
-    if (l < this.heap.length && this.heap[l][0] < this.heap[s][0]) s = l
-    if (r < this.heap.length && this.heap[r][0] < this.heap[s][0]) s = r
-    if (s !== i) {
-      ;[this.heap[i], this.heap[s]] = [this.heap[s], this.heap[i]]
-      this._bubbleDown(s)
-    }
-  }
-}
-
-// ─── 0/1 Knapsack DP logic preserved in background ────────────────────────
 function optimizeDiscounts(discounts, budget) {
   const n = discounts.length
   const dp = Array.from({ length: n + 1 }, () => new Array(budget + 1).fill(0))
@@ -166,22 +130,7 @@ export default function ShoppingCart() {
     setOrderError(null)
     const idempKey = `idemp-${Date.now()}-${Math.floor(Math.random() * 100000)}`
     
-    // Maintain Min Heap queue visualization
-    const heap = new MinHeap()
-    heap.push(orderType, { id: Date.now(), items: count, total: grandTotal, type: selectedShipping?.label })
-    heap.push(1, { id: 1001, items: 2, total: 129999, type: 'Express Delivery (2hr)' })
-    heap.push(3, { id: 1002, items: 1, total: 14999, type: 'Standard Delivery (3-5 days)' })
-    
-    const queue = []
-    while (heap.size()) {
-      const [priority, data] = heap.pop()
-      queue.push({ priority, ...data })
-    }
-    window.__lastHeapQueue = queue
-
     const orderPayload = {
-      product_id: cart[0]?.id || 1,
-      quantity: cart[0]?.qty || 1,
       total_price: grandTotal,
       priority: orderType,
       payment_method: paymentMethod,
@@ -197,8 +146,13 @@ export default function ShoppingCart() {
       setPlacedOrderDetails({
         id: `ORD-${resp.order_id}`,
         shipping: selectedShipping?.label,
-        total: grandTotal,
-        savings: totalSavings
+        total: resp.total_price ?? grandTotal,
+        savings: totalSavings,
+        orderStatus: resp.status,
+        paymentStatus: resp.payment_status,
+        transactionId: resp.payment_transaction_id,
+        paymentMethod: paymentMethod,
+        queueSize: resp.queue_size
       })
       setOrderPlaced(true)
       clearCart()
@@ -217,7 +171,7 @@ export default function ShoppingCart() {
         <div className="text-6xl text-center select-none">🎉</div>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight text-center">Order Placed!</h1>
         <p className="text-slate-500 text-xs sm:text-sm text-center leading-relaxed font-medium">
-          Thank you for shopping with aeterna. Your order is registered in our Min Heap fulfillment queue.
+          Thank you for shopping with aeterna. Your payment was received and your order is in our fulfilment queue.
         </p>
         
         <div className="bg-slate-50 p-5 rounded-[20px] border border-slate-200 space-y-3.5 text-xs sm:text-sm font-semibold">
@@ -241,36 +195,38 @@ export default function ShoppingCart() {
           </div>
         </div>
 
-        {/* Live Min Heap Dispatch queue rendering */}
-        <div className="bg-slate-900 border border-slate-800 text-white rounded-[24px] p-5 space-y-3">
+        {/* Real payment + fulfilment status, straight from the order and payment services */}
+        <div id="order-status-panel" className="bg-slate-900 border border-slate-800 text-white rounded-[24px] p-5 space-y-3">
           <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">
-            Min Heap Fulfillment Queue
+            Payment &amp; Fulfilment
           </h3>
           <div className="space-y-2 text-xs">
-            {window.__lastHeapQueue && window.__lastHeapQueue.map((item, idx) => {
-              const isUserOrder = item.total === placedOrderDetails.total && item.priority === orderType
-              return (
-                <div 
-                  key={idx} 
-                  className={`flex justify-between items-center p-2.5 rounded-xl border transition-all
-                    ${isUserOrder 
-                      ? 'bg-blue-600/20 border-blue-500 font-bold text-blue-205' 
-                      : 'bg-slate-850 border-slate-800 text-slate-450'}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono font-black text-[9px]
-                      ${isUserOrder ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}>
-                      {idx + 1}
-                    </span>
-                    <span>{item.type || 'Fulfillment Order'}</span>
-                  </div>
-                  <span className="font-mono text-[10px]">₹{item.total.toLocaleString('en-IN')}</span>
-                </div>
-              )
-            })}
+            <div className="flex justify-between">
+              <span className="text-slate-400">Payment</span>
+              <span id="payment-result" className={placedOrderDetails.paymentStatus === 'success' ? 'text-emerald-400 font-bold' : 'text-amber-300 font-bold'}>
+                {placedOrderDetails.paymentStatus === 'success' ? 'Paid' : (placedOrderDetails.orderStatus === 'paid' ? 'Paid' : 'Pending')}
+                {placedOrderDetails.paymentMethod ? ` via ${placedOrderDetails.paymentMethod.toUpperCase()}` : ''}
+              </span>
+            </div>
+            {placedOrderDetails.transactionId && (
+              <div className="flex justify-between">
+                <span className="text-slate-400">Transaction</span>
+                <span id="payment-txn" className="font-mono text-[11px]">{placedOrderDetails.transactionId}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-slate-400">Order status</span>
+              <span id="order-status" className="font-bold capitalize">{placedOrderDetails.orderStatus || 'placed'}</span>
+            </div>
+            {placedOrderDetails.queueSize != null && (
+              <div className="flex justify-between">
+                <span className="text-slate-400">Orders in fulfilment queue</span>
+                <span className="font-mono">{placedOrderDetails.queueSize}</span>
+              </div>
+            )}
           </div>
-          <p className="text-[8px] text-slate-500 text-center font-semibold italic">
-            Deliveries sorted logarithmically: Priority 1 (Express) is processed first.
+          <p className="text-[9px] text-slate-500 text-center font-semibold italic">
+            Express orders are fulfilled before Priority, and Priority before Standard (Min Heap).
           </p>
         </div>
 
