@@ -48,6 +48,40 @@ async def verify_jwt_token(credentials: Optional[HTTPAuthorizationCredentials] =
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
+class CurrentUser(BaseModel):
+    user_id: int
+    role: str = "customer"
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
+
+
+async def require_user(claims: Optional[dict] = Depends(verify_jwt_token)) -> CurrentUser:
+    """The caller's identity comes ONLY from a valid token, never from the request body."""
+    if not claims:
+        raise HTTPException(status_code=401, detail="Login required",
+                            headers={"WWW-Authenticate": "Bearer"})
+    try:
+        return CurrentUser(user_id=int(claims.get("user_id")), role=str(claims.get("role", "customer")))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Token does not carry a valid user id")
+
+
+async def require_admin(user: CurrentUser = Depends(require_user)) -> CurrentUser:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+def _owned_order_or_404(db: Session, order_id: int, user: CurrentUser) -> models.Order:
+    """Other people's orders look exactly like orders that don't exist."""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order or not (user.is_admin or order.user_id == user.user_id):
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
     ip = request.client.host if request.client else "127.0.0.1"
@@ -104,7 +138,7 @@ class OrderItem(BaseModel):
     name: Optional[str] = None
 
 class OrderCreate(BaseModel):
-    user_id: int = 1
+    user_id: Optional[int] = None  # ignored: the order always belongs to the token's user
     product_id: Optional[int] = 1
     quantity: int = 1
     total_price: float = 0.0
@@ -191,6 +225,7 @@ def _charge_with_one_retry(order_id: int, amount: float, method: str, key: str) 
 async def create_order(
     payload: OrderCreate,
     idempotency_key_header: Optional[str] = Header(None, alias="Idempotency-Key"),
+    user: CurrentUser = Depends(require_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -203,6 +238,8 @@ async def create_order(
     if idemp_key:
         existing = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
         if existing:
+            if existing.user_id != user.user_id:
+                raise HTTPException(status_code=409, detail="Idempotency key already used")
             await logger.info(f"Idempotency HIT for key {idemp_key}. Returning existing order {existing.id}.")
             return _existing_order_response(existing)
 
@@ -211,7 +248,7 @@ async def create_order(
 
     # 1. Persist first, so every outcome (and every crash) leaves a record to clean up.
     order = models.Order(
-        user_id=payload.user_id, product_id=primary_pid, quantity=primary_qty,
+        user_id=user.user_id, product_id=primary_pid, quantity=primary_qty,
         total_price=payload.total_price, priority=payload.priority, status="pending",
         items=payload.items, reserved_lines=[], idempotency_key=idemp_key,
     )
@@ -222,8 +259,10 @@ async def create_order(
         # A concurrent request with the same idempotency key won the race.
         db.rollback()
         existing = db.query(models.Order).filter(models.Order.idempotency_key == idemp_key).first()
-        if existing:
+        if existing and existing.user_id == user.user_id:
             return _existing_order_response(existing)
+        if existing:
+            raise HTTPException(status_code=409, detail="Idempotency key already used")
         raise
     db.refresh(order)
 
@@ -307,11 +346,9 @@ def _remove_from_queue(order_id: int):
 
 
 @app.post("/orders/{order_id}/cancel")
-async def cancel_order(order_id: int, db: Session = Depends(get_db)):
+async def cancel_order(order_id: int, user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
     """Cancel a paid order that has not been delivered: refund the payment, return the stock."""
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+    order = _owned_order_or_404(db, order_id, user)
     if order.status in ("cancelled", "refunded"):
         return {"order_id": order.id, "status": order.status, "message": "Already cancelled"}
     if order.status != "paid":
@@ -357,7 +394,7 @@ def expire_stale_orders(db: Session, now: Optional[datetime] = None) -> Dict[str
 
 
 @app.post("/orders/expire")
-async def expire_orders_now(db: Session = Depends(get_db)):
+async def expire_orders_now(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
     return await run_in_threadpool(expire_stale_orders, db)
 
 
@@ -379,7 +416,7 @@ async def _expiry_loop():
 # ─── Static/specific routes BEFORE dynamic {order_id} to avoid path conflicts ──
 
 @app.get("/orders/queue")
-def get_queue_status():
+def get_queue_status(_: CurrentUser = Depends(require_admin)):
     """Get current Min Heap priority queue status."""
     return {
         "dsa": "Min Heap",
@@ -391,7 +428,7 @@ def get_queue_status():
     }
 
 @app.post("/orders/queue/process")
-async def process_next_order(db: Session = Depends(get_db)):
+async def process_next_order(_: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
     """
     Process highest priority order from Min Heap (DSA #3 pop).
     Express orders (priority 1) are popped before Standard (priority 3).
@@ -417,11 +454,13 @@ async def process_next_order(db: Session = Depends(get_db)):
     return {"message": "Queue is empty. No orders to process.", "processed": None}
 
 @app.get("/orders/user/{user_id}")
-def get_user_orders(user_id: int, db: Session = Depends(get_db)):
+def get_user_orders(user_id: int, user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
     """
     Get order history for a specific customer (for 'My Orders' flow).
     IMPORTANT: must be defined BEFORE /orders/{order_id} to avoid route conflict.
     """
+    if not (user.is_admin or user.user_id == user_id):
+        raise HTTPException(status_code=403, detail="You can only view your own orders")
     orders = db.query(models.Order).filter(models.Order.user_id == user_id).order_by(models.Order.id.desc()).all()
     results = []
     for o in orders:
@@ -457,11 +496,9 @@ def get_heap_stats():
 
 # NOTE: Dynamic route LAST — must come after all static /orders/* routes
 @app.get("/orders/{order_id}")
-def get_order(order_id: int, db: Session = Depends(get_db)):
-    """Get single order details."""
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+def get_order(order_id: int, user: CurrentUser = Depends(require_user), db: Session = Depends(get_db)):
+    """Get single order details (own orders only; admins can read any)."""
+    order = _owned_order_or_404(db, order_id, user)
     return {
         "id": order.id,
         "user_id": order.user_id,

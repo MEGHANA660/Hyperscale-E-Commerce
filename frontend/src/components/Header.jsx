@@ -4,6 +4,7 @@ import { ShoppingCart, Search, X, User, Heart, Menu } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { productApi, MOCK } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 // Simple Trie client-side for Header autocomplete
 class TrieNode {
@@ -50,6 +51,7 @@ export default function Header() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { count } = useCart()
+  const { user: authUser } = useAuth()
   const { count: wishlistCount } = useWishlist()
   
   const [query, setQuery] = useState('')
@@ -213,9 +215,9 @@ export default function Header() {
 
           {/* User Icon -> Profile */}
           <Link 
-            to="/profile" 
+            to={authUser ? '/profile' : '/login'}
             className="p-1.5 hover:text-blue-600 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60"
-            title="User Profile"
+            title={authUser ? 'User Profile' : 'Log in'}
           >
             <User size={16} />
           </Link>

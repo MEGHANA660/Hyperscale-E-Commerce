@@ -1,6 +1,9 @@
 """Order service must reserve stock for EVERY cart item, all-or-nothing."""
 import pytest
-from test_integration_services import make_db_client
+from test_integration_services import make_db_client, make_user_headers
+
+USER = make_user_headers(7)
+ADMIN = make_user_headers(1, "admin")
 
 
 class FakeProductService:
@@ -74,6 +77,7 @@ class FakeProductService:
 @pytest.fixture()
 def order_env(monkeypatch):
     client, mod = make_db_client("order-service")
+    client.headers.update(USER)
     import app.clients as clients
     fake = FakeProductService({1: 5, 2: 5, 3: 1})
     monkeypatch.setattr(clients, "reserve_stock", fake.reserve)

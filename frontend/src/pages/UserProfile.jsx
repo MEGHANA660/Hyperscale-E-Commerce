@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
-import { userApi, orderApi, MOCK, getCurrentUserId } from '../services/api'
-
-const USER_ID = 1 // default seeded user 'alice_dev'
+import { userApi, orderApi, MOCK } from '../services/api'
+import { useAuth } from '../context/AuthContext'
 
 export default function UserProfile() {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login?next=/profile" replace />
+  return <UserProfileInner userId={user.id} />
+}
+
+function UserProfileInner({ userId: USER_ID }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -31,7 +36,7 @@ export default function UserProfile() {
 
   const fetchOrders = async () => {
     try {
-      const data = await orderApi.getUserOrders(getCurrentUserId())
+      const data = await orderApi.getUserOrders(USER_ID)
       if (data && data.orders && data.orders.length > 0) {
         setOrders(data.orders.map(o => ({
           id: String(o.id),

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from test_order_multi_item import order_env, _order  # noqa: F401  (fixture re-use)
+from test_order_multi_item import order_env, _order, ADMIN  # noqa: F401  (fixture re-use)
 
 
 def _place(client, pid=1, qty=1, priority=3, **kw):
@@ -47,7 +47,7 @@ def test_refund_failure_keeps_order_paid_and_stock_taken(order_env):
 def test_delivered_order_cannot_be_cancelled(order_env):
     client, stock, fake = order_env
     oid = _place(client)
-    assert client.post("/orders/queue/process").json()["processed_order"]["id"] == oid
+    assert client.post("/orders/queue/process", headers=ADMIN).json()["processed_order"]["id"] == oid
     assert client.post(f"/orders/{oid}/cancel").status_code == 409
     assert stock(1) == 4
 
@@ -58,7 +58,7 @@ def test_cancelled_order_is_skipped_by_the_queue(order_env):
     first = _place(client, priority=1)
     second = _place(client, pid=2, priority=3)
     client.post(f"/orders/{first}/cancel")
-    done = client.post("/orders/queue/process").json()
+    done = client.post("/orders/queue/process", headers=ADMIN).json()
     assert done["processed_order"]["id"] == second
 
 
@@ -146,7 +146,7 @@ def test_recent_in_flight_order_is_not_expired(order_env):
 @pytest.mark.integration
 def test_expiry_endpoint_exists(order_env):
     client, stock, fake = order_env
-    r = client.post("/orders/expire")
+    r = client.post("/orders/expire", headers=ADMIN)
     assert r.status_code == 200 and r.json() == {"expired": [], "stock_released": []}
 
 
