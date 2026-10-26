@@ -139,7 +139,7 @@ class OrderItem(BaseModel):
 
 class OrderCreate(BaseModel):
     user_id: Optional[int] = None  # ignored: the order always belongs to the token's user
-    product_id: Optional[int] = 1
+    product_id: Optional[int] = None   # legacy single-product orders; no silent default product
     quantity: int = 1
     total_price: float = 0.0
     priority: int = 3  # 1: Express (2hr), 2: Priority (Next day), 3: Standard
@@ -155,8 +155,12 @@ HOLDING_STATES = ("pending", "reserved")                       # in flight; stuc
 RELEASED_STATES = ("failed", "payment_failed", "expired", "cancelled", "refunded")
 
 
+MAX_LINE_ITEMS = int(os.getenv("MAX_LINE_ITEMS", "20"))      # distinct products per order
+MAX_QTY_PER_ITEM = int(os.getenv("MAX_QTY_PER_ITEM", "10"))   # units of one product per order
+
+
 def _parse_lines(payload: "OrderCreate") -> Dict[int, int]:
-    """Merge the cart into {product_id: quantity}, rejecting bad input."""
+    """Merge the cart into {product_id: quantity}, enforcing cart limits."""
     lines: Dict[int, int] = {}
     for it in (payload.items or []):
         try:
@@ -166,8 +170,19 @@ def _parse_lines(payload: "OrderCreate") -> Dict[int, int]:
         if qty < 1:
             raise HTTPException(status_code=422, detail=f"Invalid quantity for product {pid}")
         lines[pid] = lines.get(pid, 0) + qty
-    if not lines:  # legacy single-product payload
-        lines[payload.product_id or 1] = payload.quantity if payload.quantity > 0 else 1
+    if not lines and payload.product_id:  # legacy single-product payload
+        lines[payload.product_id] = payload.quantity
+    if not lines:
+        raise HTTPException(status_code=422, detail="Order must contain at least one item")
+    if len(lines) > MAX_LINE_ITEMS:
+        raise HTTPException(status_code=422,
+                            detail=f"Cart limit exceeded: at most {MAX_LINE_ITEMS} different products per order")
+    for pid, qty in lines.items():
+        if qty < 1:
+            raise HTTPException(status_code=422, detail=f"Invalid quantity for product {pid}")
+        if qty > MAX_QTY_PER_ITEM:
+            raise HTTPException(status_code=422,
+                                detail=f"Cart limit exceeded: at most {MAX_QTY_PER_ITEM} units of product {pid} per order")
     return lines
 
 

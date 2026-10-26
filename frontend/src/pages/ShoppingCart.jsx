@@ -4,6 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Package, Check, ShieldChe
 import { useCart } from '../context/CartContext'
 import { orderApi, analyticsApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { MAX_QTY_PER_ITEM } from '../services/limits'
 
 // Product image map (same source as ProductCard — no backend needed)
 const IMAGE_MAP = {
@@ -369,7 +370,9 @@ export default function ShoppingCart() {
                       </button>
                       <span className="font-mono w-6 text-center text-xs font-bold text-slate-800 select-none">{item.qty}</span>
                       <button onClick={() => updateQty(item.id, item.qty + 1)} id={`inc-${item.id}`}
-                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition-all active:scale-95">
+                        disabled={item.qty >= MAX_QTY_PER_ITEM}
+                        title={item.qty >= MAX_QTY_PER_ITEM ? `Maximum ${MAX_QTY_PER_ITEM} per order` : 'Add one more'}
+                        className="disabled:opacity-40 disabled:cursor-not-allowed w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition-all active:scale-95">
                         <Plus size={11} />
                       </button>
                     </div>
