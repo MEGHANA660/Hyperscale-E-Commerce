@@ -34,6 +34,13 @@ def make_token(user_id="usr-1", username="admin", role="admin") -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def make_user_headers(user_id: int = 7, role: str = "customer") -> dict:
+    """Authorization header for a token carrying a NUMERIC user id (what user-service issues)."""
+    payload = {"user_id": user_id, "username": f"user{user_id}", "role": role,
+               "exp": datetime.utcnow() + timedelta(hours=1)}
+    return {"Authorization": "Bearer " + jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)}
+
+
 def load_service_app(service_name: str):
     """
     Load a service's FastAPI `app` in isolation by purging previous `app.*`
@@ -483,13 +490,14 @@ def test_order_create(order_client, monkeypatch):
     monkeypatch.setattr(clients, "reserve_stock", lambda pid, qty, order_ref=None: {"status": "reserved"})
     monkeypatch.setattr(clients, "release_stock", lambda pid, qty, order_ref=None: {"status": "released"})
     monkeypatch.setattr(clients, "charge", lambda *a, **k: {"status": "success", "transaction_id": "txn-x"})
-    r = order_client.post("/orders", json={"user_id": 1, "product_id": 501, "quantity": 1, "total_price": 100.0, "priority": 1})
+    r = order_client.post("/orders", json={"product_id": 501, "quantity": 1, "total_price": 100.0, "priority": 1},
+                          headers=make_user_headers(1))
     assert r.status_code == 201
 
 
 @pytest.mark.integration
 def test_order_queue_status(order_client):
-    r = order_client.get("/orders/queue")
+    r = order_client.get("/orders/queue", headers=make_user_headers(1, "admin"))
     assert r.status_code == 200
     # Response uses 'queue_size' key
     assert "queue_size" in r.json()

@@ -12,30 +12,49 @@ const SERVICES = {
   auth:     'http://localhost:5001',
 }
 
-/**
- * Id of the person placing orders. Uses a logged-in id if one is stored
- * (`hsc_user_id`), otherwise a persistent per-browser guest id, so different
- * shoppers no longer all become user 1.
- */
-export function getCurrentUserId() {
+// ─── Login session (token issued by user-service) ─────────────────────────────
+const TOKEN_KEY = 'hsc_token'
+const USER_KEY = 'hsc_user'
+
+export function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
+}
+
+export function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null') } catch { return null }
+}
+
+export function saveSession(token, user) {
   try {
-    const stored = parseInt(localStorage.getItem('hsc_user_id') || '', 10)
-    if (Number.isInteger(stored) && stored > 0) return stored
-    const guest = 1000000 + Math.floor(Math.random() * 900000000)
-    localStorage.setItem('hsc_user_id', String(guest))
-    return guest
-  } catch {
-    return 1000000 + Math.floor(Math.random() * 900000000)
-  }
+    localStorage.setItem(TOKEN_KEY, token)
+    localStorage.setItem(USER_KEY, JSON.stringify(user))
+  } catch { /* storage unavailable: session lasts until reload */ }
+}
+
+export function clearSession() {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+  } catch { /* ignore */ }
+  window.dispatchEvent(new Event('hsc-logout'))
 }
 
 // Generic fetch helper with error handling
 async function apiFetch(url, options = {}) {
   try {
+    const token = getToken()
     const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
       ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
     })
+    if (res.status === 401 && token) {
+      clearSession() // token expired or rejected: send the shopper back to the login page
+      throw new Error('Your session expired. Please log in again.')
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }))
       throw new Error(err.detail || `HTTP ${res.status}`)
@@ -117,7 +136,7 @@ export const orderApi = {
   },
 
   /** Get customer orders history (for My Orders) */
-  getUserOrders: (userId = getCurrentUserId()) =>
+  getUserOrders: (userId) =>
     apiFetch(`${SERVICES.orders}/orders/user/${userId}`),
 
   /** Get order queue status */
