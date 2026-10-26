@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { MAX_QTY_PER_ITEM, MAX_LINE_ITEMS } from '../services/limits'
 import { CheckCircle, AlertCircle, X } from 'lucide-react'
 
 const CartContext = createContext(null)
@@ -26,22 +27,32 @@ export function CartProvider({ children }) {
   }
 
   const addToCart = (product, qty = 1) => {
-    if (!product) return
+    if (!product) return false
     if (product.stock !== undefined && product.stock <= 0) {
       showToast(`Sorry, "${product.name}" is currently out of stock.`, 'error')
       return false
     }
 
+    const existing = cart.find(i => i.id === product.id)
+    const wanted = (existing?.qty || 0) + qty
+    if (product.stock !== undefined && wanted > product.stock) {
+      showToast(`Cannot add more than ${product.stock} units of "${product.name}".`, 'error')
+      return false
+    }
+    if (wanted > MAX_QTY_PER_ITEM) {
+      showToast(`You can order at most ${MAX_QTY_PER_ITEM} units of "${product.name}".`, 'error')
+      return false
+    }
+    if (!existing && cart.length >= MAX_LINE_ITEMS) {
+      showToast(`Your cart can hold at most ${MAX_LINE_ITEMS} different products.`, 'error')
+      return false
+    }
+
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id)
-      if (existing) {
-        if (product.stock !== undefined && existing.qty + qty > product.stock) {
-          showToast(`Cannot add more than ${product.stock} units of "${product.name}".`, 'error')
-          return prev
-        }
-        return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i)
-      }
-      return [...prev, { ...product, qty }]
+      const found = prev.find(i => i.id === product.id)
+      return found
+        ? prev.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i)
+        : [...prev, { ...product, qty }]
     })
 
     showToast(`Added to cart: ${product.name}`, 'success')
@@ -55,6 +66,10 @@ export function CartProvider({ children }) {
 
   const updateQty = (id, qty) => {
     if (qty <= 0) return removeFromCart(id)
+    if (qty > MAX_QTY_PER_ITEM) {
+      showToast(`You can order at most ${MAX_QTY_PER_ITEM} units of one product.`, 'error')
+      return
+    }
     setCart(prev => prev.map(i => i.id === id ? { ...i, qty } : i))
   }
 
