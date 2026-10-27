@@ -62,6 +62,10 @@ async function apiFetch(url, options = {}) {
     return await res.json()
   } catch (error) {
     console.warn(`[API Error] ${url}:`, error.message)
+    if (error instanceof TypeError) {
+      // fetch() throws a bare TypeError ("Failed to fetch") when the server cannot be reached at all.
+      throw new Error("Can't reach the server. Make sure the backend is running, then try again.")
+    }
     throw error
   }
 }

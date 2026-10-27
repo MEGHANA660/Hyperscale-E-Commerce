@@ -32,12 +32,13 @@
   text-rendering: geometricPrecision;
 }
 
+/* Tailwind v4 already ships a reset (in its base layer). An UNLAYERED `margin:0; padding:0`
+   here would beat every spacing utility (px-*, py-*, mx-auto ...) and switch spacing off
+   site-wide, so only box-sizing is set. */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 html {
