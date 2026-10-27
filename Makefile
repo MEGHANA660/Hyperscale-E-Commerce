@@ -33,13 +33,23 @@ clean:
 	find . -name "*.pyc" -delete 2>/dev/null || true
 
 # Kubernetes
+# One signing secret shared by every service that issues or checks login tokens.
+# Created once with a random value; never committed.
+k8s-secret:
+	kubectl get secret jwt-secret -n hyperscale >/dev/null 2>&1 || \
+		kubectl create secret generic jwt-secret -n hyperscale --from-literal=secret_key=$$(openssl rand -hex 32)
+
 k8s-apply:
 	kubectl apply -f k8s/namespace.yaml
+	$(MAKE) k8s-secret
 	kubectl apply -f k8s/postgres.yaml
 	kubectl apply -f k8s/redis.yaml
 	kubectl apply -f k8s/auth-service.yaml
 	kubectl apply -f k8s/main-service.yaml
 	kubectl apply -f k8s/product-service.yaml
+	kubectl apply -f k8s/user-service.yaml
+	kubectl apply -f k8s/payment-service.yaml
+	kubectl apply -f k8s/order-service.yaml
 	kubectl apply -f k8s/ingress.yaml
 
 k8s-delete:

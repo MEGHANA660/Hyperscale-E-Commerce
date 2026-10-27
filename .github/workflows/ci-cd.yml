@@ -54,6 +54,10 @@ jobs:
           - recommendation-service
           - analytics-service
           - notification-service
+        include:
+          # image name is hyperscale-payment-service, folder is services/payment_service
+          - service: payment-service
+            path: payment_service
 
     steps:
       - uses: actions/checkout@v4
@@ -75,7 +79,7 @@ jobs:
       - name: Build and push ${{ matrix.service }}
         uses: docker/build-push-action@v5
         with:
-          context: ./services/${{ matrix.service }}
+          context: ./services/${{ matrix.path || matrix.service }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:latest

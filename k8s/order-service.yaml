@@ -4,7 +4,9 @@ metadata:
   name: order-service
   namespace: hyperscale
 spec:
-  replicas: 2
+  # One replica on purpose: the Min Heap fulfilment queue lives in this process's memory,
+  # so a second replica would hold a different queue. Raise this once the queue is shared.
+  replicas: 1
   selector:
     matchLabels:
       app: order-service
@@ -25,6 +27,13 @@ spec:
               value: mongodb://mongodb:27017
             - name: PRODUCT_SERVICE_URL
               value: http://product-service:8000
+            - name: PAYMENT_SERVICE_URL
+              value: http://payment-service:8000
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret_key
           readinessProbe:
             httpGet:
               path: /health
