@@ -55,12 +55,5 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: jwt-secret
-  namespace: hyperscale
-type: Opaque
-stringData:
-  secret_key: "change-this-in-production-use-a-strong-random-key"
+# NOTE: the `jwt-secret` Secret is deliberately NOT defined here. `make k8s-secret` creates it
+# with a random value (a committed value would be public, and anyone could forge login tokens).
