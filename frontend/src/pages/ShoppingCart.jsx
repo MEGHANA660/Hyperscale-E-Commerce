@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext'
 import { orderApi, analyticsApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { MAX_QTY_PER_ITEM } from '../services/limits'
+import PaymentModal from '../components/PaymentModal'
 
 // Product image map (same source as ProductCard — no backend needed)
 const IMAGE_MAP = {
@@ -81,6 +82,7 @@ export default function ShoppingCart() {
   const [processingOrder, setProcessingOrder] = useState(false)
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null)
   const [orderError, setOrderError] = useState(null)
+  const [payOpen, setPayOpen] = useState(false)
   
   // Checkout flow step: 1 = Review Cart, 2 = Shipping & Payment Info
   const [step, setStep] = useState(1)
@@ -123,23 +125,33 @@ export default function ShoppingCart() {
   totalSavings = Math.round(totalSavings)
   const grandTotal = Math.max(0, subtotal + shippingCost - totalSavings)
 
-  const placeOrder = async () => {
+  // Step 1: validate the form and open the payment authorisation dialog.
+  const openPayment = () => {
     if (!user) {
       navigate('/login?next=/cart')
       return
     }
-    setProcessingOrder(true)
+    if (!fullName.trim() || !phone.trim() || !address.trim()) {
+      setOrderError('Please fill in your name, phone number and delivery address')
+      return
+    }
     setOrderError(null)
+    setPayOpen(true)
+  }
+
+  // Step 2: called by the dialog once the customer has authorised the payment.
+  // Throws on failure so the dialog can show the reason; the order is only
+  // shown as placed if the order service really saved it.
+  const submitOrder = async (chargeMethod) => {
+    setProcessingOrder(true)
     const idempKey = `idemp-${Date.now()}-${Math.floor(Math.random() * 100000)}`
-    
     const orderPayload = {
       total_price: grandTotal,
       priority: orderType,
-      payment_method: paymentMethod,
+      payment_method: chargeMethod,
       items: cart.map(i => ({ product_id: i.id, name: i.name, quantity: i.qty, price: i.price })),
       idempotency_key: idempKey
     }
-
     try {
       const resp = await orderApi.placeOrder(orderPayload, idempKey)
       if (!resp || resp.order_id == null) {
@@ -156,12 +168,9 @@ export default function ShoppingCart() {
         paymentMethod: paymentMethod,
         queueSize: resp.queue_size
       })
+      setPayOpen(false)
       setOrderPlaced(true)
       clearCart()
-    } catch (err) {
-      // Never show a success screen for an order that was not saved.
-      console.warn('Order failed:', err.message)
-      setOrderError(err.message || 'Could not place your order. Please try again.')
     } finally {
       setProcessingOrder(false)
     }
@@ -206,8 +215,12 @@ export default function ShoppingCart() {
             <div className="flex justify-between">
               <span className="text-slate-400">Payment</span>
               <span id="payment-result" className={placedOrderDetails.paymentStatus === 'success' ? 'text-emerald-400 font-bold' : 'text-amber-300 font-bold'}>
-                {placedOrderDetails.paymentStatus === 'success' ? 'Paid' : (placedOrderDetails.orderStatus === 'paid' ? 'Paid' : 'Pending')}
-                {placedOrderDetails.paymentMethod ? ` via ${placedOrderDetails.paymentMethod.toUpperCase()}` : ''}
+                {placedOrderDetails.paymentMethod === 'cod'
+                  ? 'Pay on delivery'
+                  : <>
+                      {placedOrderDetails.paymentStatus === 'success' || placedOrderDetails.orderStatus === 'paid' ? 'Paid' : 'Pending'}
+                      {placedOrderDetails.paymentMethod ? ` via ${placedOrderDetails.paymentMethod.toUpperCase()}` : ''}
+                    </>}
               </span>
             </div>
             {placedOrderDetails.transactionId && (
@@ -531,7 +544,7 @@ export default function ShoppingCart() {
             ) : (
               <button 
                 id="place-order-btn" 
-                onClick={placeOrder} 
+                onClick={openPayment} 
                 disabled={processingOrder}
                 className="btn-pill-dark w-full flex items-center justify-center gap-2 py-3"
               >
@@ -548,9 +561,17 @@ export default function ShoppingCart() {
 
             {orderError && (
               <div role="alert" id="order-error" className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
-                Order not placed: {orderError}. Your cart has been kept so you can try again.
+                {orderError}
               </div>
             )}
+
+            <PaymentModal
+              open={payOpen}
+              method={paymentMethod}
+              amount={grandTotal}
+              onClose={() => setPayOpen(false)}
+              onConfirm={submitOrder}
+            />
 
             <div className="flex items-center gap-1.5 justify-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
               <ShieldCheck size={11} />
