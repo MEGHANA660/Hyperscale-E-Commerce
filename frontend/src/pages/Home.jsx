@@ -126,11 +126,20 @@ export default function Home() {
   }, [])
 
   // --- Dynamic Products Categorization from live catalog ---
-  const bestsellers = productsList.slice(0, 4)
-  const trending = productsList.slice(4, 10)
-  const newArrivals = productsList.slice(10, 18)
-  const premiumPicks = productsList.filter(p => p.price >= 80000).slice(0, 4)
-  const flashSaleItems = productsList.slice(18, 22)
+  // Mix categories (one from each in turn) so every section shows variety instead of
+  // a single category, and fill each row of the grid completely.
+  const byCategory = {}
+  productsList.forEach(p => { (byCategory[p.category] ||= []).push(p) })
+  const queues = Object.values(byCategory)
+  const mixed = []
+  for (let i = 0; queues.some(q => i < q.length); i++) {
+    queues.forEach(q => { if (i < q.length) mixed.push(q[i]) })
+  }
+  const bestsellers = mixed.slice(0, 4)
+  const trending = mixed.slice(4, 10)
+  const newArrivals = mixed.slice(10, 18)
+  const premiumPicks = [...productsList].sort((a, b) => b.price - a.price).slice(0, 4)
+  const flashSaleItems = mixed.slice(18, 22)
   const recommended = productsList.filter(p => p.category === 'Fashion' || p.category === 'Beauty' || p.category === 'Home & Living').slice(0, 4)
 
   return (
@@ -145,7 +154,7 @@ export default function Home() {
               <Sparkles size={12} className="text-amber-500 fill-amber-500" />
               Summer Edit — 2026
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 tracking-tighter leading-[0.9] max-w-lg">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 tracking-tight leading-[1.02] max-w-xl">
               Everyday essentials,<br />exceptionally made.
             </h1>
             <p className="text-sm sm:text-base lg:text-lg text-slate-650 leading-relaxed font-medium">
