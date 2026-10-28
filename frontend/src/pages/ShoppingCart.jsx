@@ -60,7 +60,9 @@ const ORDER_TYPES = [
 // Discounts mapped to Rupees (cost represents budget unit weight, value represents value)
 const DISCOUNTS = [
   { label: '10% Multi-item Discount', type: 'percent', value: 0.10, cost: 30, minItems: 2 },
-  { label: 'Free Priority Shipping', type: 'shipping', value: 1.0, cost: 20 },
+  // Takes up to ₹150 off the delivery charge (it no longer cancels the whole fee, so the
+  // delivery option you choose always changes the total).
+  { label: '₹150 Off Delivery', type: 'shipping', value: 1.0, cost: 20, cap: 150 },
   { label: '₹1,500 Festive Coupon', type: 'flat', value: 1500, cost: 50 },
   { label: 'Loyalty Bonus 5% Off', type: 'percent', value: 0.05, cost: 15 },
 ]
@@ -113,7 +115,7 @@ export default function ShoppingCart() {
     } else if (discount.type === 'flat') {
       totalSavings += Math.min(subtotal, discount.value)
     } else if (discount.type === 'shipping') {
-      totalSavings += shippingCost
+      totalSavings += Math.min(shippingCost, discount.cap ?? shippingCost)
     }
   })
 
@@ -324,7 +326,7 @@ export default function ShoppingCart() {
                         className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition-all active:scale-95">
                         <Minus size={11} />
                       </button>
-                      <span className="font-mono w-6 text-center text-xs font-bold text-slate-800 select-none">{item.qty}</span>
+                      <span className="tabular-nums w-6 text-center text-sm font-bold text-slate-800 select-none">{item.qty}</span>
                       <button onClick={() => updateQty(item.id, item.qty + 1)} id={`inc-${item.id}`}
                         disabled={item.qty >= MAX_QTY_PER_ITEM}
                         title={item.qty >= MAX_QTY_PER_ITEM ? `Maximum ${MAX_QTY_PER_ITEM} per order` : 'Add one more'}
@@ -451,7 +453,7 @@ export default function ShoppingCart() {
           
           {/* Delivery Options Selector */}
           <div className="bg-white p-5 rounded-[24px] border border-slate-200/60 shadow-xs space-y-3">
-            <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 tracking-tight flex items-center gap-1.5">
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight flex items-center gap-1.5">
               <Package size={15} />
               Delivery Options
             </h3>
@@ -467,16 +469,16 @@ export default function ShoppingCart() {
                       : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500'}`}
                 >
                   <div className="space-y-0.5">
-                    <p className={`text-xs font-bold ${orderType === opt.priority ? 'text-white' : 'text-slate-800'}`}>{opt.label}</p>
-                    <p className={`text-[9px] font-semibold ${orderType === opt.priority ? 'text-slate-350' : 'text-slate-400'}`}>{opt.desc}</p>
+                    <p className={`text-sm font-bold ${orderType === opt.priority ? 'text-white' : 'text-slate-800'}`}>{opt.label}</p>
+                    <p className={`text-xs font-medium ${orderType === opt.priority ? 'text-slate-350' : 'text-slate-400'}`}>{opt.desc}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {opt.extra > 0 ? (
-                      <span className={`font-mono text-xs font-bold ${orderType === opt.priority ? 'text-white' : 'text-slate-800'}`}>
+                      <span className={`tabular-nums text-sm font-bold ${orderType === opt.priority ? 'text-white' : 'text-slate-800'}`}>
                         +₹{opt.extra.toLocaleString('en-IN')}
                       </span>
                     ) : (
-                      <span className="text-emerald-600 font-extrabold text-[10px] uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                      <span className="text-emerald-600 font-extrabold text-xs uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                         Free
                       </span>
                     )}
@@ -488,25 +490,25 @@ export default function ShoppingCart() {
 
           {/* Checkout Totals Summary Card */}
           <div className="bg-white p-5 rounded-[24px] border border-slate-200/60 shadow-xs space-y-4">
-            <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 tracking-tight">Order Summary</h3>
+            <h3 className="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight">Order Summary</h3>
             
-            <div className="space-y-2 text-xs sm:text-sm font-medium text-slate-500">
+            <div className="space-y-2.5 text-sm font-medium text-slate-500">
               <div className="flex justify-between">
                 <span>Subtotal ({count} items)</span>
-                <span className="font-mono text-slate-800 font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
+                <span className="tabular-nums text-slate-800 font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery Charge</span>
-                <span className="font-mono text-slate-800 font-bold">{shippingCost === 0 ? 'Free' : `₹${shippingCost.toLocaleString('en-IN')}`}</span>
+                <span className="tabular-nums text-slate-800 font-bold">{shippingCost === 0 ? 'Free' : `₹${shippingCost.toLocaleString('en-IN')}`}</span>
               </div>
               
               {/* DP Optimization savings display */}
               {totalSavings > 0 && (
                 <div className="flex justify-between text-emerald-600 font-bold bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100/50">
-                  <span className="flex items-center gap-1 text-[10px] sm:text-xs">
+                  <span className="flex items-center gap-1 text-xs">
                     <Check size={13} /> You Save (Best Offer applied)
                   </span>
-                  <span className="font-mono">-₹{totalSavings.toLocaleString('en-IN')}</span>
+                  <span className="tabular-nums">-₹{totalSavings.toLocaleString('en-IN')}</span>
                 </div>
               )}
             </div>
@@ -515,7 +517,7 @@ export default function ShoppingCart() {
 
             <div className="flex justify-between font-black text-slate-900 text-base">
               <span>Total Price</span>
-              <span className="font-mono">₹{grandTotal.toLocaleString('en-IN')}</span>
+              <span className="tabular-nums">₹{grandTotal.toLocaleString('en-IN')}</span>
             </div>
 
             {step === 1 ? (
