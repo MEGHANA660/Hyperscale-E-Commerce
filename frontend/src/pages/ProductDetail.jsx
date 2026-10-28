@@ -5,6 +5,7 @@ import { productApi, recApi, MOCK } from '../services/api'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import ProductCard from '../components/ProductCard'
+import { productImage } from '../services/productImage'
 
 // Map products to premium design brand names
 const BRAND_MAP = {
@@ -18,78 +19,37 @@ const BRAND_MAP = {
   'Accessories': 'EQUINOX',
 }
 
-// Map products to high-quality Unsplash image URLs
-const IMAGE_MAP = {
-  1: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80', // MacBook Pro
-  2: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=600&q=80', // iPhone 15 Pro
-  3: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80', // Sony Headphones
-  4: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=600&q=80', // iPad Air
-  5: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=600&q=80', // Samsung TV
-  6: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=600&q=80', // Dell XPS 15
-  7: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80', // Apple Watch Ultra 2
-  8: 'https://images.unsplash.com/photo-1588449668338-d15168822481?auto=format&fit=crop&w=600&q=80', // AirPods Pro 2
-  9: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=600&q=80', // Logitech MX Master 3S
-  10: 'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80', // Keychron Q1 Pro
-  11: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=600&q=80', // Dell Monitor 27"
-  12: 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=600&q=80', // HP Laser Printer
-}
 
 // Generate dynamic review count based on product ID
 const REVIEW_COUNT_MAP = {
   1: 1240, 2: 642, 3: 318, 4: 982, 5: 540, 6: 2104, 7: 311, 8: 1450, 9: 220, 10: 178, 11: 450, 12: 129
 }
 
-// Specifications mapping based on Category
-const getSpecsList = (category) => {
-  if (category === 'Laptops') {
-    return [
-      { key: 'Processor', val: 'Intel Core i9 / Apple M3 Pro (Octa-core / Deca-core)' },
-      { key: 'Memory', val: '18GB / 32GB Unified RAM High-Speed DDR5' },
-      { key: 'Storage', val: '512GB / 1TB Ultra-fast PCIe Gen 4 NVMe SSD' },
-      { key: 'Display', val: '16-inch Liquid Retina XDR / 120Hz OLED InfinityEdge' },
-      { key: 'Graphics', val: 'Integrated 14-core GPU / NVIDIA RTX 40-Series' }
-    ]
-  } else if (category === 'Phones') {
-    return [
-      { key: 'Display Panel', val: '6.7-inch OLED Super Retina XDR / ProMotion 120Hz' },
-      { key: 'Chipset Architecture', val: 'A17 Pro / Apple M2 Processor 3nm Tech' },
-      { key: 'Camera Module', val: '48MP Triple-Lens system with 5x Optical Zoom' },
-      { key: 'Biometric Security', val: 'Face ID Hardware Cryptographic Protection' },
-      { key: 'Chassis Material', val: 'Aerospace-Grade Titanium Frame, Ceramic Shield' }
-    ]
-  } else if (category === 'Electronics') {
-    return [
-      { key: 'Driver Diameter', val: '40mm Custom Dome Type Driver (CCAW Voice Coil)' },
-      { key: 'Active Noise Cancellation', val: 'Dual Noise Sensor, V1 Processor Integrated' },
-      { key: 'Battery Life Span', val: 'Up to 30 Hours (ANC On) / 38 Hours (ANC Off)' },
-      { key: 'Wireless Spec', val: 'Bluetooth 5.2 / LDAC High-Res Audio Wireless' },
-      { key: 'Physical Weight', val: 'Approx. 250g Ultra-lightweight Design' }
-    ]
-  } else {
-    return [
-      { key: 'Power Input Range', val: 'AC 100-240V, 50/60Hz Multi-voltage Adaptive' },
-      { key: 'Material Composition', val: 'Premium Grade Sandblasted Aluminum & Tempered Glass' },
-      { key: 'Eco Standard', val: 'Energy Star certified high efficiency operation' },
-      { key: 'Hardware Interface', val: 'Dual HDMI 2.1, DisplayPort 1.4, USB-C Power Delivery' },
-      { key: 'Warranty Coverage', val: '1-Year Limited Manufacturer Warranty (Global)' }
-    ]
+// Facts about this product, taken from its own data (no invented specifications).
+const getSpecsList = (product) => {
+  const rows = [{ key: 'Category', val: product.category }]
+  if (product.description) rows.push({ key: 'About', val: product.description })
+  if (product.originalPrice > product.price) {
+    rows.push({ key: 'MRP', val: `₹${product.originalPrice.toLocaleString('en-IN')}` })
   }
+  rows.push({ key: 'Availability', val: product.stock > 0 ? `In stock (${product.stock} units)` : 'Out of stock' })
+  rows.push({ key: 'Returns', val: '7 day replacement' })
+  return rows
 }
 
-// Seeded reviews list
-const REVIEWS = [
-  { user: 'Rohan S.', rating: 5, date: 'May 10, 2026', title: 'Absolutely worth it!', comment: 'An incredibly well-crafted product. Performance is outstanding and the design aesthetics fit perfectly with my minimal workspace setup.' },
-  { user: 'Ananya M.', rating: 4, date: 'May 14, 2026', title: 'Excellent, but pricey', comment: 'Quality is unmatched, although the pricing is premium. If you appreciate clean design and details, this is the one for you.' },
-  { user: 'Vikram D.', rating: 5, date: 'May 20, 2026', title: 'Perfect product', comment: 'Zero issues. Fast delivery, exceptional packaging, and the product performs exactly as advertised.' }
-]
-
-// Client-side product graph BFS logic preserved in background
-const GRAPH = {
-  1: [3, 11, 12], 2: [7, 8, 5], 3: [7, 1, 4],
-  4: [2, 7, 1], 5: [7, 8, 2], 6: [11, 12, 9],
-  7: [2, 3, 8], 8: [2, 5, 7], 9: [6, 11, 12],
-  10: [9], 11: [12, 6, 1], 12: [11, 6, 9],
-}
+// Product graph for the BFS recommender: products in the same category are neighbours
+// (each one linked to the next 3 in its category), built from the catalog.
+const GRAPH = (() => {
+  const byCat = {}
+  MOCK.products.forEach(p => { (byCat[p.category] ||= []).push(p.id) })
+  const g = {}
+  Object.values(byCat).forEach(ids => {
+    ids.forEach((id, i) => {
+      g[id] = [1, 2, 3].map(k => ids[(i + k) % ids.length]).filter(x => x !== id)
+    })
+  })
+  return g
+})()
 
 function bfsRecommend(startId, depth = 2) {
   const visited = new Set([startId])
@@ -207,7 +167,7 @@ export default function ProductDetail() {
   }
 
   const brand = BRAND_MAP[product.category] || 'MERIDIAN'
-  const imageUrl = product.image_url || IMAGE_MAP[product.id] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
+  const imageUrl = productImage(product)
   const reviewsCount = REVIEW_COUNT_MAP[product.id] || 450
   const inStock = product.stock > 0
   const discountPercent = product.originalPrice 
@@ -215,7 +175,7 @@ export default function ProductDetail() {
     : null
   
   const isFav = isInWishlist(product.id)
-  const specs = getSpecsList(product.category)
+  const specs = getSpecsList(product)
 
   return (
     <div className="space-y-8 sm:space-y-10 animate-in text-left">
@@ -262,9 +222,9 @@ export default function ProductDetail() {
                   />
                 ))}
               </div>
-              <span className="text-xs text-slate-700 font-bold">{product.rating} Rating</span>
+              <span className="text-xs text-slate-700 font-bold">{Number(product.rating).toFixed(1)} Rating</span>
               <span className="text-slate-350">|</span>
-              <span className="text-xs text-slate-455 font-semibold">{reviewsCount.toLocaleString()} Reviews</span>
+              <span className="text-xs text-slate-455 font-semibold">{(product.sold ?? reviewsCount).toLocaleString('en-IN')} sold</span>
             </div>
           </div>
 
@@ -321,7 +281,7 @@ export default function ProductDetail() {
           <div className="min-h-24">
             {activeTab === 'description' && (
               <p className="text-sm text-slate-650 leading-relaxed font-medium">
-                Experience peak performance and incredible reliability. Designed with premium materials and engineered to exceed expectations, this {product.name.toLowerCase()} offers standard-setting quality and performance for everyday use.
+                {product.description || `${product.name} from our ${product.category} range.`}
               </p>
             )}
 
@@ -337,26 +297,18 @@ export default function ProductDetail() {
             )}
 
             {activeTab === 'reviews' && (
-              <div className="space-y-3.5">
-                {REVIEWS.map((rev, idx) => (
-                  <div key={idx} className="bg-slate-50/50 border border-slate-200 p-4 rounded-2xl space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">{rev.user}</span>
-                      <span className="text-xs text-slate-400 font-semibold">{rev.date}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={11} 
-                          className={i < rev.rating ? 'text-amber-500 fill-amber-500' : 'text-slate-200'} 
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs font-extrabold text-slate-800">{rev.title}</p>
-                    <p className="text-xs text-slate-600 font-medium leading-relaxed italic">"{rev.comment}"</p>
+              <div className="bg-slate-50/60 border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                <div className="text-3xl font-black text-slate-900 tabular-nums">{product.rating != null ? Number(product.rating).toFixed(1) : '–'}</div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={14} className={i < Math.round(product.rating ?? 0) ? 'text-amber-500 fill-amber-500' : 'text-slate-200'} />
+                    ))}
                   </div>
-                ))}
+                  <p className="text-sm font-medium text-slate-500">
+                    Average rating. Written reviews from verified buyers will appear here once customers post them.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -432,7 +384,7 @@ export default function ProductDetail() {
             </div>
             <div className="flex flex-col items-center gap-1.5 p-2 border-x border-slate-100">
               <ShieldCheck size={18} className="text-slate-400" />
-              <span>1 Year Warranty</span>
+              <span>Secure Payments</span>
             </div>
             <div className="flex flex-col items-center gap-1.5 p-2">
               <RotateCcw size={18} className="text-slate-400" />

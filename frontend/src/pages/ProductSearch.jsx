@@ -48,13 +48,14 @@ const SearchSkeleton = () => (
 
 const CATEGORIES = ['All', 'Electronics', 'Laptops', 'Phones', 'Fashion', 'Beauty', 'Home & Living', 'Accessories']
 const PRICE_RANGES = [
-  { label: 'All Prices',          val: 'All' },
-  { label: 'Under ₹5,000',       val: 'under-5k' },
-  { label: '₹5,000 – ₹20,000',  val: '5k-20k' },
-  { label: '₹20,000 – ₹50,000', val: '20k-50k' },
-  { label: '₹50,000 – ₹1,00,000', val: '50k-100k' },
-  { label: 'Over ₹1,00,000',    val: 'over-100k' },
+  { label: 'All Prices',        val: 'All' },
+  { label: 'Under ₹500',        val: 'under-500' },
+  { label: '₹500 – ₹1,000',     val: '500-1k' },
+  { label: '₹1,000 – ₹2,500',   val: '1k-2500' },
+  { label: '₹2,500 – ₹10,000',  val: '2500-10k' },
+  { label: 'Over ₹10,000',      val: 'over-10k' },
 ]
+const PAGE_SIZE = 20
 const RATINGS = [
   { label: 'All Ratings',    val: 'All' },
   { label: '4.8★ & above',  val: '4.8' },
@@ -73,6 +74,7 @@ export default function ProductSearch() {
   const [query, setQuery]                     = useState('')
   const [results, setResults]                 = useState(MOCK.products)
   const [loading, setLoading]                 = useState(false)
+  const [visible, setVisible]                 = useState(PAGE_SIZE)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [selectedCategory, setSelectedCategory]   = useState('All')
   const [selectedPriceRange, setSelectedPriceRange] = useState('All')
@@ -102,7 +104,7 @@ export default function ProductSearch() {
           window.__lastTrieTime = (performance.now() - t0).toFixed(4)
           window.__lastQuery = q
         } else {
-          const res = await productApi.getAll(1, 60, cat === 'All' ? '' : cat)
+          const res = await productApi.getAll(1, 200, cat === 'All' ? '' : cat)
           matched = res.products || []
         }
       } catch (err) {
@@ -127,11 +129,11 @@ export default function ProductSearch() {
 
       // Price filter
       if (priceRange && priceRange !== 'All') {
-        if      (priceRange === 'under-5k')  matched = matched.filter(p => p.price < 5000)
-        else if (priceRange === '5k-20k')    matched = matched.filter(p => p.price >= 5000 && p.price < 20000)
-        else if (priceRange === '20k-50k')   matched = matched.filter(p => p.price >= 20000 && p.price <= 50000)
-        else if (priceRange === '50k-100k')  matched = matched.filter(p => p.price > 50000 && p.price <= 100000)
-        else if (priceRange === 'over-100k') matched = matched.filter(p => p.price > 100000)
+        if      (priceRange === 'under-500') matched = matched.filter(p => p.price < 500)
+        else if (priceRange === '500-1k')    matched = matched.filter(p => p.price >= 500 && p.price < 1000)
+        else if (priceRange === '1k-2500')   matched = matched.filter(p => p.price >= 1000 && p.price < 2500)
+        else if (priceRange === '2500-10k')  matched = matched.filter(p => p.price >= 2500 && p.price <= 10000)
+        else if (priceRange === 'over-10k')  matched = matched.filter(p => p.price > 10000)
       }
 
       // Rating filter
@@ -145,6 +147,7 @@ export default function ProductSearch() {
       if (sort === 'rating')     matched = [...matched].sort((a, b) => (b.rating || 4.5) - (a.rating || 4.5))
 
       setResults(matched)
+      setVisible(PAGE_SIZE)
       setLoading(false)
     }, 250)
   }, [])
@@ -357,9 +360,17 @@ export default function ProductSearch() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5">
-              {results.map(p => (
+              {results.slice(0, visible).map(p => (
                 <ProductCard key={p.id} product={p} />
               ))}
+            </div>
+          )}
+          {!loading && results.length > visible && (
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <p className="text-sm font-medium text-slate-500">Showing {visible} of {results.length} products</p>
+              <button id="show-more" type="button" onClick={() => setVisible(v => v + PAGE_SIZE)} className="btn-pill-dark px-8 py-3 text-sm">
+                Show more products
+              </button>
             </div>
           )}
         </section>

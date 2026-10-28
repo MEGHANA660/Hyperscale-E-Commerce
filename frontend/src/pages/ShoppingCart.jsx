@@ -6,30 +6,8 @@ import { orderApi, analyticsApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { MAX_QTY_PER_ITEM } from '../services/limits'
 import PaymentModal from '../components/PaymentModal'
+import { productImage } from '../services/productImage'
 
-// Product image map (same source as ProductCard — no backend needed)
-const IMAGE_MAP = {
-  1:'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=200&q=80',
-  2:'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=200&q=80',
-  3:'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=200&q=80',
-  4:'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=200&q=80',
-  5:'https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=200&q=80',
-  6:'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=200&q=80',
-  7:'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=200&q=80',
-  8:'https://images.unsplash.com/photo-1588449668338-d15168822481?auto=format&fit=crop&w=200&q=80',
-  9:'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=200&q=80',
-  10:'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=200&q=80',
-  11:'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=200&q=80',
-  12:'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=200&q=80',
-  13:'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=200&q=80',
-  14:'https://images.unsplash.com/photo-1585515320310-259814833e62?auto=format&fit=crop&w=200&q=80',
-  15:'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=200&q=80',
-  16:'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=200&q=80',
-  17:'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=200&q=80',
-  18:'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=200&q=80',
-  19:'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=200&q=80',
-  20:'https://images.unsplash.com/photo-1541643600914-78b084683702?auto=format&fit=crop&w=200&q=80',
-}
 
 function optimizeDiscounts(discounts, budget) {
   const n = discounts.length
@@ -307,7 +285,7 @@ export default function ShoppingCart() {
         {step === 1 && (
           <div className="lg:col-span-2 space-y-3.5">
             {cart.map(item => {
-              const imgSrc = item.image_url || IMAGE_MAP[item.id]
+              const imgSrc = productImage(item)
               return (
                 <div key={item.id} className="bg-white border border-slate-200/60 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-[20px] shadow-xs hover:shadow-sm transition-all">
                   <div className="flex items-center gap-4 w-full">
@@ -595,8 +573,8 @@ export default function ShoppingCart() {
             </Link>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {MOCK.products.filter(p => [3, 8, 15, 19].includes(p.id)).map(rec => {
-              const imgSrc = rec.image_url || IMAGE_MAP[rec.id]
+            {MOCK.popular(4).map(rec => {
+              const imgSrc = productImage(rec)
               return (
                 <Link
                   key={rec.id}
