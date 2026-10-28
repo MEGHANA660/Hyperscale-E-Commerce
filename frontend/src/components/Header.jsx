@@ -128,7 +128,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 transition-all duration-300">
       {/* Top Announcement Bar */}
-      <div className="w-full bg-slate-900 text-white text-[10px] sm:text-xs py-1 px-4 text-center tracking-wide font-medium">
+      <div className="w-full bg-slate-900 text-white text-xs sm:text-xs py-1 px-4 text-center tracking-wide font-medium">
         Free 2-day shipping on orders over ₹5,000 · 60-day returns · Members earn 2× points
       </div>
 
@@ -140,7 +140,7 @@ export default function Header() {
           <Link to="/" className="text-lg sm:text-xl font-black text-slate-900 tracking-tighter select-none flex items-center gap-1">
             aeterna<span className="text-blue-600 font-extrabold">.</span>
           </Link>
-          <nav className="hidden xl:flex items-center gap-5 text-[11px] font-bold uppercase tracking-wider text-slate-800">
+          <nav className="hidden xl:flex items-center gap-5 text-xs font-bold uppercase tracking-wider text-slate-800">
             <Link to="/search" className="hover:text-blue-600 transition-colors">Shop All</Link>
             <Link to="/search?category=Fashion" className="hover:text-blue-600 transition-colors">Fashion</Link>
             <Link to="/search?category=Electronics" className="hover:text-blue-600 transition-colors">Electronics</Link>
@@ -195,7 +195,7 @@ export default function Header() {
                   className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-between border-b border-slate-100 last:border-b-0 cursor-pointer"
                 >
                   <span className="truncate">{item.name}</span>
-                  <span className="text-[9px] text-slate-450 font-mono capitalize bg-slate-100 px-2 py-0.5 rounded">{item.category}</span>
+                  <span className="text-xs text-slate-450 font-mono capitalize bg-slate-100 px-2 py-0.5 rounded">{item.category}</span>
                 </button>
               ))}
             </div>
@@ -230,7 +230,7 @@ export default function Header() {
           >
             <Heart size={16} className={wishlistCount > 0 ? 'text-red-500 fill-red-500 animate-pulse' : ''} />
             {wishlistCount > 0 && (
-              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 text-white text-xs font-black rounded-full flex items-center justify-center shadow-xs">
                 {wishlistCount}
               </span>
             )}
@@ -244,7 +244,7 @@ export default function Header() {
           >
             <ShoppingCart size={16} />
             {count > 0 && (
-              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-900 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-xs">
+              <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-slate-900 text-white text-xs font-black rounded-full flex items-center justify-center shadow-xs">
                 {count > 9 ? '9+' : count}
               </span>
             )}
@@ -276,7 +276,7 @@ export default function Header() {
             <hr className="border-slate-100" />
             <Link to="/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors flex items-center justify-between">
               <span>My Wishlist</span>
-              {wishlistCount > 0 && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">{wishlistCount}</span>}
+              {wishlistCount > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-black">{wishlistCount}</span>}
             </Link>
             <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-blue-600 transition-colors">My Account</Link>
           </nav>

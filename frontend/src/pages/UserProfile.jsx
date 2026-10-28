@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
 import { userApi, orderApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { useWishlist } from '../context/WishlistContext'
 
 export default function UserProfile() {
   const { user } = useAuth()
@@ -27,6 +28,7 @@ function UserProfileInner({ userId: USER_ID }) {
 
   // Real orders state
   const [orders, setOrders] = useState([])
+  const { wishlist } = useWishlist()
 
   useEffect(() => {
     fetchProfile()
@@ -147,7 +149,7 @@ function UserProfileInner({ userId: USER_ID }) {
             <h2 className="text-lg font-black text-slate-800 tracking-tight">{username}</h2>
             <p className="text-xs text-slate-400 font-semibold">{email}</p>
             <div className="pt-2 flex justify-center">
-              <span className="badge badge-purple text-[9px] uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full">
+              <span className="badge badge-purple text-xs uppercase tracking-wider font-extrabold px-2.5 py-0.5 rounded-full">
                 {profile?.role === 'customer' ? 'Premium Member' : 'System Administrator'}
               </span>
             </div>
@@ -158,12 +160,12 @@ function UserProfileInner({ userId: USER_ID }) {
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-4 w-full text-left px-6">
             <div className="bg-slate-50 border border-slate-200/50 p-3.5 rounded-2xl">
-              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Total Orders</p>
-              <p className="text-base font-black text-slate-800 font-mono mt-0.5">2</p>
+              <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Total Orders</p>
+              <p className="text-base font-black text-slate-800 tabular-nums mt-0.5">{orders.length}</p>
             </div>
             <div className="bg-slate-50 border border-slate-200/50 p-3.5 rounded-2xl">
-              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Saved Items</p>
-              <p className="text-base font-black text-slate-800 font-mono mt-0.5">3</p>
+              <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Saved Items</p>
+              <p className="text-base font-black text-slate-800 tabular-nums mt-0.5">{wishlist.length}</p>
             </div>
           </div>
 
@@ -179,7 +181,7 @@ function UserProfileInner({ userId: USER_ID }) {
                 </div>
                 <div className="text-left">
                   <p className="text-xs font-extrabold text-amber-900">Performance Metrics</p>
-                  <p className="text-[10px] text-amber-700 font-medium">DSA & System Dashboard</p>
+                  <p className="text-xs text-amber-700 font-medium">DSA & System Dashboard</p>
                 </div>
               </div>
               <ArrowRight size={14} className="text-amber-600 group-hover:translate-x-0.5 transition-transform" />
@@ -197,7 +199,7 @@ function UserProfileInner({ userId: USER_ID }) {
           <form onSubmit={handleSave} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1 text-left">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Username</label>
+                <label className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Username</label>
                 <div className="flex items-center gap-2 border border-slate-350 rounded-xl px-3.5 py-2.5 bg-slate-50 focus-within:border-slate-800 focus-within:bg-white transition-all">
                   <User size={14} className="text-slate-400" />
                   <input
@@ -211,7 +213,7 @@ function UserProfileInner({ userId: USER_ID }) {
               </div>
 
               <div className="space-y-1 text-left">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Email address</label>
+                <label className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Email address</label>
                 <div className="flex items-center gap-2 border border-slate-350 rounded-xl px-3.5 py-2.5 bg-slate-50 focus-within:border-slate-800 focus-within:bg-white transition-all">
                   <Mail size={14} className="text-slate-400" />
                   <input
@@ -226,7 +228,7 @@ function UserProfileInner({ userId: USER_ID }) {
             </div>
 
             <div className="space-y-1 text-left">
-              <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Shipping Address</label>
+              <label className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Shipping Address</label>
               <textarea
                 defaultValue={profile?.address || '142 Premium Lane, Bangalore, KA, India'}
                 rows={2}
@@ -237,7 +239,7 @@ function UserProfileInner({ userId: USER_ID }) {
             <div className="flex items-center justify-between gap-4 pt-2">
               <div className="flex-1">
                 {isSaved && (
-                  <p className="text-emerald-600 text-[11px] font-bold flex items-center gap-1">
+                  <p className="text-emerald-600 text-xs font-bold flex items-center gap-1">
                     <CheckCircle size={13} /> Changes saved successfully!
                   </p>
                 )}
@@ -277,17 +279,17 @@ function UserProfileInner({ userId: USER_ID }) {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-xs font-black text-slate-800">Order ID: #{ord.id}</span>
-                    <span className="text-[10px] text-slate-400 font-semibold">{ord.date}</span>
+                    <span className="text-xs text-slate-400 font-semibold">{ord.date}</span>
                   </div>
                   <p className="text-xs text-slate-500 font-semibold">{ord.items}</p>
                   <p className="text-slate-850 font-black text-xs">₹{ord.total.toLocaleString('en-IN')}</p>
                 </div>
 
                 <div className="text-right flex flex-col items-end gap-1.5">
-                  <span className={`badge ${ord.status === 'delivered' ? 'badge-green' : 'badge-yellow'} text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full font-extrabold`}>
+                  <span className={`badge ${ord.status === 'delivered' ? 'badge-green' : 'badge-yellow'} text-xs uppercase tracking-wider px-2 py-0.5 rounded-full font-extrabold`}>
                     {ord.status}
                   </span>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{ord.type} delivery</span>
+                  <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{ord.type} delivery</span>
                 </div>
               </div>
             ))}
@@ -302,32 +304,32 @@ function UserProfileInner({ userId: USER_ID }) {
                 <Database size={13} className="text-blue-400" />
                 LRU Cache Stats
               </h3>
-              <span className="badge badge-blue text-[8px] uppercase tracking-wider font-mono">User-Service</span>
+              <span className="badge badge-blue text-xs uppercase tracking-wider font-mono">User-Service</span>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-relaxed font-semibold mt-3">
+            <p className="text-xs text-slate-400 leading-relaxed font-semibold mt-3">
               The backend uses a doubly-linked HashMap LRU Cache (Capacity: 1,000) to keep active user records loaded, avoiding expensive PostgreSQL disk lookups.
             </p>
 
             <div className="grid grid-cols-2 gap-3.5 pt-4">
               <div className="bg-slate-850 border border-slate-800 p-3 rounded-xl">
-                <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Cache Hits</p>
+                <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Cache Hits</p>
                 <p className="text-base font-black text-blue-400 font-mono mt-0.5">{lruStats?.hits ?? 0}</p>
               </div>
               <div className="bg-slate-850 border border-slate-800 p-3 rounded-xl">
-                <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Cache Misses</p>
+                <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Cache Misses</p>
                 <p className="text-base font-black text-red-400 font-mono mt-0.5">{lruStats?.misses ?? 0}</p>
               </div>
               <div className="bg-slate-850 border border-slate-800 p-3 rounded-xl col-span-2 flex justify-between items-center">
                 <div>
-                  <p className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider">Hit Ratio</p>
+                  <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Hit Ratio</p>
                   <p className="text-base font-black text-emerald-400 font-mono mt-0.5">
                     {lruStats ? `${lruStats.ratio ?? (lruStats.hits / Math.max(1, lruStats.hits + lruStats.misses) * 100).toFixed(1)}%` : '0%'}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider">Speed gain</p>
-                  <span className="text-[10px] text-amber-400 font-bold flex items-center gap-0.5">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Speed gain</p>
+                  <span className="text-xs text-amber-400 font-bold flex items-center gap-0.5">
                     <Zap size={11} className="fill-current" /> ~112× Faster
                   </span>
                 </div>

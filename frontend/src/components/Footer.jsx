@@ -60,7 +60,7 @@ export default function Footer() {
 
         {/* Column 2: Shop */}
         <div className="space-y-4">
-          <h4 className="text-white text-[10px] font-extrabold tracking-widest uppercase">Collections</h4>
+          <h4 className="text-white text-xs font-extrabold tracking-widest uppercase">Collections</h4>
           <ul className="space-y-2 text-xs font-semibold">
             <li><Link to="/search" className="hover:text-white transition-colors">Shop All</Link></li>
             <li><Link to="/search?category=Fashion" className="hover:text-white transition-colors">Fashion Edit</Link></li>
@@ -72,7 +72,7 @@ export default function Footer() {
 
         {/* Column 3: Company */}
         <div className="space-y-4">
-          <h4 className="text-white text-[10px] font-extrabold tracking-widest uppercase">Company</h4>
+          <h4 className="text-white text-xs font-extrabold tracking-widest uppercase">Company</h4>
           <ul className="space-y-2 text-xs font-semibold">
             <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
             <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
@@ -84,7 +84,7 @@ export default function Footer() {
 
         {/* Column 4: Customer Support & Legal */}
         <div className="space-y-4">
-          <h4 className="text-white text-[10px] font-extrabold tracking-widest uppercase">Let Us Help</h4>
+          <h4 className="text-white text-xs font-extrabold tracking-widest uppercase">Let Us Help</h4>
           <ul className="space-y-2 text-xs font-semibold">
             <li><Link to="/profile" className="hover:text-white transition-colors">Your Account</Link></li>
             <li><Link to="/cart" className="hover:text-white transition-colors">Fulfillment Queue</Link></li>

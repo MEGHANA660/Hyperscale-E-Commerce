@@ -229,7 +229,7 @@ export default function PerformanceDashboard() {
         </div>
         <div>
           <p className="text-xs font-extrabold text-amber-900 uppercase tracking-wider">🔧 Developer & Faculty View</p>
-          <p className="text-[10px] text-amber-700 font-medium mt-0.5">Real-time performance benchmarks for the 7 DSA algorithms running in the background. Not visible to regular shoppers.</p>
+          <p className="text-xs text-amber-700 font-medium mt-0.5">Real-time performance benchmarks for the 7 DSA algorithms running in the background. Not visible to regular shoppers.</p>
         </div>
       </div>
 
@@ -282,7 +282,7 @@ export default function PerformanceDashboard() {
               </div>
               <div className="flex-1 h-6 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                 <div
-                  className="h-full rounded-lg perf-bar flex items-center justify-end pr-2.5 text-[10px] font-black text-white"
+                  className="h-full rounded-lg perf-bar flex items-center justify-end pr-2.5 text-xs font-black text-white"
                   style={{ width: animated ? `${dsa.bar}%` : '0%' }}
                 >
                   {dsa.bar}%
@@ -332,11 +332,11 @@ export default function PerformanceDashboard() {
               <div className="flex gap-4">
                 <div className="text-center bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg">
                   <div className="font-mono text-emerald-600 font-bold text-sm">{active.complexity.time}</div>
-                  <div className="text-[10px] text-slate-400 font-medium">Time Complexity</div>
+                  <div className="text-xs text-slate-400 font-medium">Time Complexity</div>
                 </div>
                 <div className="text-center bg-slate-50 border border-slate-200 py-1.5 px-3 rounded-lg">
                   <div className="font-mono text-blue-600 font-bold text-sm">{active.complexity.space}</div>
-                  <div className="text-[10px] text-slate-400 font-medium">Space Complexity</div>
+                  <div className="text-xs text-slate-400 font-medium">Space Complexity</div>
                 </div>
               </div>
             </div>
@@ -346,9 +346,9 @@ export default function PerformanceDashboard() {
               {active.stats.map(s => (
                 <div key={s.label} className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                   <div className="text-lg font-black text-slate-800 font-mono">
-                    {s.value}<span className="text-[10px] text-slate-400 ml-1 font-semibold">{s.unit}</span>
+                    {s.value}<span className="text-xs text-slate-400 ml-1 font-semibold">{s.unit}</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">{s.label}</div>
+                  <div className="text-xs text-slate-500 font-medium mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -356,12 +356,12 @@ export default function PerformanceDashboard() {
             {/* Timings comparison */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <div className="flex-1 bg-red-50 border border-red-200 rounded-2xl p-4 text-xs">
-                <div className="text-red-600 font-bold mb-1 uppercase tracking-wider text-[10px]">Standard System</div>
+                <div className="text-red-600 font-bold mb-1 uppercase tracking-wider text-xs">Standard System</div>
                 <div className="text-slate-700 font-mono font-medium">{active.comparison.baseline}</div>
               </div>
               <div className="flex items-center justify-center text-xl font-black text-emerald-600 px-2 shrink-0">→</div>
               <div className="flex-1 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs">
-                <div className="text-emerald-600 font-bold mb-1 uppercase tracking-wider text-[10px]">Optimized System ({active.name})</div>
+                <div className="text-emerald-600 font-bold mb-1 uppercase tracking-wider text-xs">Optimized System ({active.name})</div>
                 <div className="text-slate-700 font-mono font-bold">{active.comparison.optimized}</div>
               </div>
             </div>
@@ -402,7 +402,7 @@ export default function PerformanceDashboard() {
                   }`}
                   style={{ height: `${height}%` }}
                 />
-                <span className="text-[10px] text-slate-500 font-semibold mb-1 select-none">{months[i]}</span>
+                <span className="text-xs text-slate-500 font-semibold mb-1 select-none">{months[i]}</span>
               </div>
             )
           })}
@@ -437,7 +437,7 @@ export default function PerformanceDashboard() {
           <div className="bg-cyan-50 border border-cyan-100 px-5 py-2.5 rounded-2xl flex items-center gap-2 ml-auto w-full sm:w-auto justify-center sm:justify-start">
             <span className="text-slate-600 text-xs font-semibold">Segment Tree Range Sum:</span>
             <span className="text-xl font-mono font-black text-cyan-600">{rangeSum.toLocaleString()}</span>
-            <span className="text-slate-500 text-[10px] font-semibold">units</span>
+            <span className="text-slate-500 text-xs font-semibold">units</span>
           </div>
         </div>
         

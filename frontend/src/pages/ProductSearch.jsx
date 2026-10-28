@@ -36,7 +36,7 @@ MOCK.products.forEach(p => {
 // Skeleton loader
 const SearchSkeleton = () => (
   <div className="animate-pulse flex flex-col bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-    <div className="aspect-[4/5] bg-slate-100 w-full" />
+    <div className="aspect-square bg-slate-100 w-full" />
     <div className="p-4 space-y-3">
       <div className="h-2 w-14 bg-slate-100 rounded" />
       <div className="h-3.5 w-3/4 bg-slate-100 rounded" />
@@ -48,13 +48,14 @@ const SearchSkeleton = () => (
 
 const CATEGORIES = ['All', 'Electronics', 'Laptops', 'Phones', 'Fashion', 'Beauty', 'Home & Living', 'Accessories']
 const PRICE_RANGES = [
-  { label: 'All Prices',          val: 'All' },
-  { label: 'Under ₹5,000',       val: 'under-5k' },
-  { label: '₹5,000 – ₹20,000',  val: '5k-20k' },
-  { label: '₹20,000 – ₹50,000', val: '20k-50k' },
-  { label: '₹50,000 – ₹1,00,000', val: '50k-100k' },
-  { label: 'Over ₹1,00,000',    val: 'over-100k' },
+  { label: 'All Prices',        val: 'All' },
+  { label: 'Under ₹500',        val: 'under-500' },
+  { label: '₹500 – ₹1,000',     val: '500-1k' },
+  { label: '₹1,000 – ₹2,500',   val: '1k-2500' },
+  { label: '₹2,500 – ₹10,000',  val: '2500-10k' },
+  { label: 'Over ₹10,000',      val: 'over-10k' },
 ]
+const PAGE_SIZE = 20
 const RATINGS = [
   { label: 'All Ratings',    val: 'All' },
   { label: '4.8★ & above',  val: '4.8' },
@@ -73,6 +74,7 @@ export default function ProductSearch() {
   const [query, setQuery]                     = useState('')
   const [results, setResults]                 = useState(MOCK.products)
   const [loading, setLoading]                 = useState(false)
+  const [visible, setVisible]                 = useState(PAGE_SIZE)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [selectedCategory, setSelectedCategory]   = useState('All')
   const [selectedPriceRange, setSelectedPriceRange] = useState('All')
@@ -102,7 +104,7 @@ export default function ProductSearch() {
           window.__lastTrieTime = (performance.now() - t0).toFixed(4)
           window.__lastQuery = q
         } else {
-          const res = await productApi.getAll(1, 60, cat === 'All' ? '' : cat)
+          const res = await productApi.getAll(1, 200, cat === 'All' ? '' : cat)
           matched = res.products || []
         }
       } catch (err) {
@@ -127,11 +129,11 @@ export default function ProductSearch() {
 
       // Price filter
       if (priceRange && priceRange !== 'All') {
-        if      (priceRange === 'under-5k')  matched = matched.filter(p => p.price < 5000)
-        else if (priceRange === '5k-20k')    matched = matched.filter(p => p.price >= 5000 && p.price < 20000)
-        else if (priceRange === '20k-50k')   matched = matched.filter(p => p.price >= 20000 && p.price <= 50000)
-        else if (priceRange === '50k-100k')  matched = matched.filter(p => p.price > 50000 && p.price <= 100000)
-        else if (priceRange === 'over-100k') matched = matched.filter(p => p.price > 100000)
+        if      (priceRange === 'under-500') matched = matched.filter(p => p.price < 500)
+        else if (priceRange === '500-1k')    matched = matched.filter(p => p.price >= 500 && p.price < 1000)
+        else if (priceRange === '1k-2500')   matched = matched.filter(p => p.price >= 1000 && p.price < 2500)
+        else if (priceRange === '2500-10k')  matched = matched.filter(p => p.price >= 2500 && p.price <= 10000)
+        else if (priceRange === 'over-10k')  matched = matched.filter(p => p.price > 10000)
       }
 
       // Rating filter
@@ -145,6 +147,7 @@ export default function ProductSearch() {
       if (sort === 'rating')     matched = [...matched].sort((a, b) => (b.rating || 4.5) - (a.rating || 4.5))
 
       setResults(matched)
+      setVisible(PAGE_SIZE)
       setLoading(false)
     }, 250)
   }, [])
@@ -174,10 +177,10 @@ export default function ProductSearch() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className="text-[10px] font-black text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="text-xs font-black text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               ⚡ Trie Search {window.__lastTrieTime ? `${window.__lastTrieTime}ms` : 'Active'}
             </span>
-            <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+            <span className="text-xs font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               🛡️ Bloom Filter Guard {window.__bloomBlocked || 0} Blocked
             </span>
           </div>
@@ -221,7 +224,7 @@ export default function ProductSearch() {
       {/* Active Filter Chips Bar */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 flex-wrap bg-slate-50 p-3 rounded-2xl border border-slate-200/60">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mr-1">Active:</span>
+          <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mr-1">Active:</span>
           {selectedCategory !== 'All' && (
             <span className="inline-flex items-center gap-1 text-xs font-bold bg-white text-slate-800 border border-slate-250 px-3 py-1 rounded-full shadow-2xs">
               Cat: {selectedCategory}
@@ -247,10 +250,10 @@ export default function ProductSearch() {
       )}
 
       {/* Main grid with 25% / 75% Split */}
-      <div className="grid lg:grid-cols-4 gap-8 items-start">
+      <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
 
         {/* ── Sidebar (25% column) ── */}
-        <aside className={`lg:col-span-1 lg:sticky lg:top-24 lg:self-start bg-white border border-slate-100 rounded-3xl p-6 space-y-6 lg:block shadow-sm
+        <aside className={`lg:sticky lg:top-24 lg:self-start bg-white border border-slate-100 rounded-3xl p-6 space-y-6 lg:block shadow-sm
           ${showMobileFilters ? 'block fixed inset-0 z-50 w-72 h-screen overflow-y-auto rounded-none border-0' : 'hidden'}`}
         >
           <div className="flex items-center justify-between">
@@ -259,7 +262,7 @@ export default function ProductSearch() {
             </h2>
             <div className="flex items-center gap-2">
               {hasActiveFilters && (
-                <button onClick={clearAll} className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer">
+                <button onClick={clearAll} className="text-xs font-bold text-blue-600 hover:text-blue-800 underline transition-colors cursor-pointer">
                   Clear all
                 </button>
               )}
@@ -269,7 +272,7 @@ export default function ProductSearch() {
 
           {/* Category */}
           <div className="space-y-3">
-            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Category</h3>
+            <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Category</h3>
             <div className="flex flex-col gap-1">
               {CATEGORIES.map(cat => {
                 const isActive = selectedCategory.toLowerCase() === cat.toLowerCase()
@@ -282,7 +285,7 @@ export default function ProductSearch() {
                       ${isActive ? 'bg-slate-900 text-white font-bold' : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'}`}
                   >
                     <span>{cat}</span>
-                    <span className={`text-[10px] font-semibold ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>
+                    <span className={`text-xs font-semibold ${isActive ? 'text-slate-300' : 'text-slate-400'}`}>{count}</span>
                   </button>
                 )
               })}
@@ -291,7 +294,7 @@ export default function ProductSearch() {
 
           {/* Price */}
           <div className="space-y-3 border-t border-slate-100 pt-5">
-            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Price Range</h3>
+            <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Price Range</h3>
             <div className="flex flex-col gap-1">
               {PRICE_RANGES.map(opt => {
                 const isActive = selectedPriceRange === opt.val
@@ -312,7 +315,7 @@ export default function ProductSearch() {
 
           {/* Rating */}
           <div className="space-y-3 border-t border-slate-100 pt-5">
-            <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Customer Rating</h3>
+            <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">Customer Rating</h3>
             <div className="flex flex-col gap-1">
               {RATINGS.map(opt => {
                 const isActive = selectedRating === opt.val
@@ -341,9 +344,9 @@ export default function ProductSearch() {
         )}
 
         {/* ── Products grid (75% column) ── */}
-        <section className="lg:col-span-3 min-w-0">
+        <section className="min-w-0">
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5">
               {[...Array(6)].map((_, i) => <SearchSkeleton key={i} />)}
             </div>
           ) : results.length === 0 ? (
@@ -356,10 +359,18 @@ export default function ProductSearch() {
               <button onClick={clearAll} className="btn-pill-dark text-xs py-2.5 px-5 mt-2 cursor-pointer">Clear filters</button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {results.map(p => (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-5">
+              {results.slice(0, visible).map(p => (
                 <ProductCard key={p.id} product={p} />
               ))}
+            </div>
+          )}
+          {!loading && results.length > visible && (
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <p className="text-sm font-medium text-slate-500">Showing {visible} of {results.length} products</p>
+              <button id="show-more" type="button" onClick={() => setVisible(v => v + PAGE_SIZE)} className="btn-pill-dark px-8 py-3 text-sm">
+                Show more products
+              </button>
             </div>
           )}
         </section>
