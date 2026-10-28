@@ -244,7 +244,7 @@ export default function ProductDetail() {
         {/* Right Side: Product Details Info */}
         <div className="space-y-6">
           <div className="space-y-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
               {brand}
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight pt-1">
@@ -285,7 +285,7 @@ export default function ProductDetail() {
             {discountPercent && (
               <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
                 <span>Save {discountPercent}% today</span>
-                <span className="bg-emerald-50 text-emerald-600 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-100 font-extrabold">
+                <span className="bg-emerald-50 text-emerald-600 text-xs uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-100 font-extrabold">
                   Special Offer
                 </span>
               </div>
@@ -342,7 +342,7 @@ export default function ProductDetail() {
                   <div key={idx} className="bg-slate-50/50 border border-slate-200 p-4 rounded-2xl space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-800">{rev.user}</span>
-                      <span className="text-[10px] text-slate-400 font-semibold">{rev.date}</span>
+                      <span className="text-xs text-slate-400 font-semibold">{rev.date}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => (
@@ -425,7 +425,7 @@ export default function ProductDetail() {
           </div>
 
           {/* Delivery & Warranty Features */}
-          <div className="grid grid-cols-3 gap-2 pt-2 text-center text-[10px] sm:text-xs text-slate-500 border-t border-slate-100 font-bold">
+          <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs sm:text-xs text-slate-500 border-t border-slate-100 font-bold">
             <div className="flex flex-col items-center gap-1.5 p-2">
               <Truck size={18} className="text-slate-400" />
               <span>Free Delivery Available</span>

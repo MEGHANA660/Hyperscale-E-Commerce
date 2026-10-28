@@ -98,7 +98,7 @@ export default function Login() {
             aeterna<span className="text-primary-500">.</span>
           </span>
 
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-primary-600">Member login</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-primary-600">Member login</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Log in to your account</h1>
           <p className="mt-2 text-sm font-medium text-slate-500">
             {target === '/cart' ? 'Log in to finish placing your order. Your cart is saved.' : 'Enter your details to continue.'}

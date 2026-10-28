@@ -187,16 +187,16 @@ export default function ShoppingCart() {
         
         <div className="bg-slate-50 p-5 rounded-[20px] border border-slate-200 space-y-3.5 text-xs sm:text-sm font-semibold">
           <div className="flex justify-between border-b border-slate-200 pb-2">
-            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Order ID:</span>
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-xs">Order ID:</span>
             <span className="font-mono font-black text-slate-800">{placedOrderDetails.id}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Delivery Speed:</span>
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-xs">Delivery Speed:</span>
             <span className="text-slate-800">{placedOrderDetails.shipping}</span>
           </div>
           {placedOrderDetails.savings > 0 && (
             <div className="flex justify-between">
-              <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Total Discount Saved:</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider text-xs">Total Discount Saved:</span>
               <span className="text-emerald-600 font-extrabold">₹{placedOrderDetails.savings.toLocaleString('en-IN')}</span>
             </div>
           )}
@@ -208,7 +208,7 @@ export default function ShoppingCart() {
 
         {/* Real payment + fulfilment status, straight from the order and payment services */}
         <div id="order-status-panel" className="bg-slate-900 border border-slate-800 text-white rounded-[24px] p-5 space-y-3">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">
+          <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2">
             Payment &amp; Fulfilment
           </h3>
           <div className="space-y-2 text-xs">
@@ -226,7 +226,7 @@ export default function ShoppingCart() {
             {placedOrderDetails.transactionId && (
               <div className="flex justify-between">
                 <span className="text-slate-400">Transaction</span>
-                <span id="payment-txn" className="font-mono text-[11px]">{placedOrderDetails.transactionId}</span>
+                <span id="payment-txn" className="font-mono text-xs">{placedOrderDetails.transactionId}</span>
               </div>
             )}
             <div className="flex justify-between">
@@ -240,7 +240,7 @@ export default function ShoppingCart() {
               </div>
             )}
           </div>
-          <p className="text-[9px] text-slate-500 text-center font-semibold italic">
+          <p className="text-xs text-slate-500 text-center font-semibold italic">
             Express orders are fulfilled before Priority, and Priority before Standard (Min Heap).
           </p>
         </div>
@@ -324,10 +324,10 @@ export default function ShoppingCart() {
                     {/* Info */}
                     <div className="flex-1 min-w-0 text-left">
                       <p className="text-slate-800 font-bold text-sm leading-tight truncate">{item.name}</p>
-                      <p className="text-slate-400 text-[10px] uppercase font-extrabold tracking-wider mt-0.5">{item.category}</p>
+                      <p className="text-slate-400 text-xs uppercase font-extrabold tracking-wider mt-0.5">{item.category}</p>
                       <p className="text-slate-900 font-black text-sm mt-1.5">₹{(item.price * item.qty).toLocaleString('en-IN')}</p>
                       {item.qty > 1 && (
-                        <p className="text-[10px] text-slate-400 font-medium">₹{item.price.toLocaleString('en-IN')} each</p>
+                        <p className="text-xs text-slate-400 font-medium">₹{item.price.toLocaleString('en-IN')} each</p>
                       )}
                     </div>
                   </div>
@@ -360,7 +360,7 @@ export default function ShoppingCart() {
             {/* Knapsack DP coupon optimized widget */}
             {activeDiscounts.length > 0 && (
               <div className="bg-emerald-50/40 border border-emerald-150 p-5 rounded-[24px] space-y-3">
-                <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-800 flex items-center gap-1.5">
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-emerald-800 flex items-center gap-1.5">
                   <Compass size={14} /> Knapsack DP: Applied Vouchers
                 </h4>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -371,12 +371,12 @@ export default function ShoppingCart() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate leading-tight">{discount.label}</p>
-                        <p className="text-[8px] font-semibold text-emerald-600 uppercase tracking-wide mt-0.5">Budget Weight: {discount.cost} units</p>
+                        <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mt-0.5">Budget Weight: {discount.cost} units</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">
+                <p className="text-xs text-slate-450 leading-relaxed font-semibold">
                   * Dynamic Programming Knapsack algorithm has computed the mathematically optimal combination of active promotions matching your checkout budget limits (Weight cost units) to maximize your discount savings.
                 </p>
               </div>
@@ -394,7 +394,7 @@ export default function ShoppingCart() {
             <div className="space-y-4">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Full Name</label>
+                  <label className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Full Name</label>
                   <input
                     type="text"
                     value={fullName}
@@ -404,7 +404,7 @@ export default function ShoppingCart() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Phone Number</label>
+                  <label className="text-xs font-extrabold text-slate-455 uppercase tracking-wider">Phone Number</label>
                   <input
                     type="text"
                     value={phone}
@@ -416,7 +416,7 @@ export default function ShoppingCart() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Delivery Address</label>
+                <label className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Delivery Address</label>
                 <textarea
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -446,12 +446,12 @@ export default function ShoppingCart() {
                         : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-500'}`}
                   >
                     <div className="flex justify-between items-center w-full">
-                      <span className={`text-[10px] font-extrabold ${paymentMethod === pay.id ? 'text-white' : 'text-slate-800'}`}>
+                      <span className={`text-xs font-extrabold ${paymentMethod === pay.id ? 'text-white' : 'text-slate-800'}`}>
                         {pay.label}
                       </span>
                       <CreditCard size={12} className={paymentMethod === pay.id ? 'text-blue-300' : 'text-slate-400'} />
                     </div>
-                    <span className={`text-[8px] font-semibold ${paymentMethod === pay.id ? 'text-slate-350' : 'text-slate-400'}`}>
+                    <span className={`text-xs font-semibold ${paymentMethod === pay.id ? 'text-slate-350' : 'text-slate-400'}`}>
                       {pay.desc}
                     </span>
                   </button>
@@ -573,7 +573,7 @@ export default function ShoppingCart() {
               onConfirm={submitOrder}
             />
 
-            <div className="flex items-center gap-1.5 justify-center text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 justify-center text-xs text-slate-400 font-bold uppercase tracking-wider">
               <ShieldCheck size={11} />
               <span>100% Secure Checkout</span>
             </div>
@@ -612,7 +612,7 @@ export default function ShoppingCart() {
                     <p className="text-xs font-bold text-slate-800 line-clamp-1 leading-tight">{rec.name}</p>
                     <div className="flex items-center gap-1 mt-1">
                       <Star size={10} className="text-amber-400 fill-amber-400" />
-                      <span className="text-[10px] font-bold text-slate-600">{rec.rating}</span>
+                      <span className="text-xs font-bold text-slate-600">{rec.rating}</span>
                     </div>
                     <p className="text-sm font-black text-slate-900 mt-1">₹{rec.price.toLocaleString('en-IN')}</p>
                   </div>

@@ -141,7 +141,7 @@ export default function Home() {
         <div className="grid lg:grid-cols-2 items-center gap-12 p-8 sm:p-14 lg:p-20 text-left">
           {/* Hero copy */}
           <div className="space-y-8 z-10 max-w-xl">
-            <div className="inline-flex items-center gap-2 bg-white/80 border border-slate-200/60 px-4 py-2 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-slate-800 shadow-2xs">
+            <div className="inline-flex items-center gap-2 bg-white/80 border border-slate-200/60 px-4 py-2 rounded-full text-xs font-extrabold uppercase tracking-wider text-slate-800 shadow-2xs">
               <Sparkles size={12} className="text-amber-500 fill-amber-500" />
               Summer Edit — 2026
             </div>
@@ -189,7 +189,7 @@ export default function Home() {
               </div>
               <div className="text-left">
                 <p className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">{feat.label}</p>
-                <p className="text-[10px] sm:text-xs text-slate-400 font-semibold mt-0.5">{feat.detail}</p>
+                <p className="text-xs sm:text-xs text-slate-400 font-semibold mt-0.5">{feat.detail}</p>
               </div>
             </div>
           )
@@ -223,7 +223,7 @@ export default function Home() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-end p-4 text-left">
                 <h3 className="text-white text-sm sm:text-base font-extrabold tracking-tight leading-tight">{cat.name}</h3>
-                <span className="inline-block w-fit px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider text-slate-900 bg-white/95 backdrop-blur-xs mt-2 shadow-xs transition-colors duration-300 group-hover:bg-slate-900 group-hover:text-white">
+                <span className="inline-block w-fit px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wider text-slate-900 bg-white/95 backdrop-blur-xs mt-2 shadow-xs transition-colors duration-300 group-hover:bg-slate-900 group-hover:text-white">
                   {cat.count}
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function Home() {
       <section className="bg-red-50/50 border border-red-100 rounded-3xl p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-red-100/70 pb-4 text-left">
           <div className="space-y-1">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-red-600 bg-red-100 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-red-600 bg-red-100 px-2.5 py-1 rounded-full">
               Flash Deal of the Day
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">Limited Hours Offer</h2>
@@ -287,10 +287,10 @@ export default function Home() {
           <div className="grid lg:grid-cols-5 gap-8 items-center text-left relative z-10">
             <div className="lg:col-span-3 space-y-6">
               <div className="flex flex-wrap gap-2 items-center">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-400">
+                <span className="text-xs font-extrabold uppercase tracking-[0.2em] text-blue-400">
                   {PROMO_SLIDES[currentSlide].subtitle}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   {PROMO_SLIDES[currentSlide].badge}
                 </span>
@@ -304,7 +304,7 @@ export default function Home() {
               </p>
               
               <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 w-fit px-4 py-2 rounded-xl shadow-inner">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Use Code:</span>
+                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Use Code:</span>
                 <span className="font-mono text-xs sm:text-sm font-black text-amber-400 tracking-wider">
                   {PROMO_SLIDES[currentSlide].code}
                 </span>
@@ -414,7 +414,7 @@ export default function Home() {
       <section className="grid md:grid-cols-2 gap-6">
         <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-8 sm:p-12 text-left shadow-lg">
           <div className="space-y-4 max-w-sm">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-300">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-blue-300">
               Electronics Sale
             </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
@@ -431,7 +431,7 @@ export default function Home() {
 
         <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-purple-900 to-fuchsia-950 text-white p-8 sm:p-12 text-left shadow-lg">
           <div className="space-y-4 max-w-sm">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-fuchsia-300">
+            <span className="text-xs font-extrabold uppercase tracking-widest text-fuchsia-300">
               Apparel Curations
             </span>
             <h3 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
@@ -470,7 +470,7 @@ export default function Home() {
         <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-slate-200 pb-4 text-left gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="bg-amber-100 text-amber-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-200">
+              <span className="bg-amber-100 text-amber-900 text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-amber-200">
                 4.9 / 5.0 Overall Score
               </span>
               <span className="text-slate-400 text-xs font-semibold">from 12,400+ reviews</span>
@@ -499,7 +499,7 @@ export default function Home() {
                     ))}
                   </div>
                   {item.verified && (
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-150">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-150">
                       Verified
                     </span>
                   )}
@@ -517,7 +517,7 @@ export default function Home() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-slate-900 truncate">{item.author}</p>
-                    <p className="text-[10px] text-slate-400 font-bold truncate">{item.role}</p>
+                    <p className="text-xs text-slate-400 font-bold truncate">{item.role}</p>
                   </div>
                 </div>
               </div>
