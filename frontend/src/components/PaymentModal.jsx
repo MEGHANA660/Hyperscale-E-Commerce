@@ -74,6 +74,7 @@ function PaymentDialog({ method, amount, onClose, onConfirm }) {
   const [otp, setOtp] = useState('')
   const [otpTries, setOtpTries] = useState(0)
   const [error, setError] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape' && step !== 'processing') onClose() }
@@ -100,15 +101,20 @@ function PaymentDialog({ method, amount, onClose, onConfirm }) {
     e.preventDefault()
     setError(null)
     if (method === 'upi') {
-      if (!UPI_RE.test(upiId.trim())) { setError('Enter a valid UPI ID, for example name@okhdfcbank.'); return }
+      if (!UPI_RE.test(upiId.trim())) { setFieldErrors({ upi: 'Enter a valid UPI ID, for example name@okhdfcbank.' }); return }
+      setFieldErrors({})
       // Simulates the "approve in your UPI app" request, then charges.
       setStep('approving')
       setTimeout(() => submit('upi'), 1800)
     } else if (method === 'card') {
-      if (!holder.trim()) { setError('Enter the name on the card.'); return }
-      if (!luhnValid(cardNo)) { setError('That card number is not valid.'); return }
-      if (!expiryValid(expiry)) { setError('Enter a valid expiry date as MM/YY.'); return }
-      if (!/^\d{3,4}$/.test(cvv)) { setError('Enter the 3 or 4 digit CVV.'); return }
+      const errs = {}
+      if (!holder.trim()) errs.holder = 'Enter the name on the card.'
+      if (!luhnValid(cardNo)) errs.card = cardNo.trim() ? 'That card number is not valid.' : 'Enter the 16 digit card number.'
+      if (!expiry.trim()) errs.exp = 'Enter the expiry date.'
+      else if (!expiryValid(expiry)) errs.exp = 'Use a future date as MM/YY, for example 12/30.'
+      if (!/^\d{3,4}$/.test(cvv)) errs.cvv = 'Enter the 3 or 4 digit CVV.'
+      setFieldErrors(errs)
+      if (Object.keys(errs).length) return
       setStep('otp')
     } else {
       submit('cod')
@@ -130,6 +136,14 @@ function PaymentDialog({ method, amount, onClose, onConfirm }) {
     }
     setError(null)
     submit(methodForCard(cardNo))
+  }
+
+  const clearField = key => setFieldErrors(f => (f[key] ? { ...f, [key]: undefined } : f))
+  const fieldCls = key => (fieldErrors[key] ? ' !border-red-400 !bg-red-50/40' : '')
+  const fieldError = name =>
+    fieldErrors[name] ? <p className="mt-1.5 text-sm font-semibold text-red-600">{fieldErrors[name]}</p> : null
+  const fillTestCard = () => {
+    setHolder('Alice Dev'); setCardNo('4242 4242 4242 4242'); setExpiry('12/30'); setCvv('123'); setFieldErrors({})
   }
 
   const inputCls =
@@ -167,7 +181,8 @@ function PaymentDialog({ method, amount, onClose, onConfirm }) {
             {method === 'upi' && (
               <div>
                 <label htmlFor="pay-upi" className={labelCls}>UPI ID</label>
-                <input id="pay-upi" className={inputCls} value={upiId} onChange={e => setUpiId(e.target.value)} placeholder="name@okhdfcbank" autoComplete="off" autoFocus />
+                <input id="pay-upi" className={inputCls + fieldCls('upi')} value={upiId} onChange={e => { setUpiId(e.target.value); clearField('upi') }} placeholder="name@okhdfcbank" autoComplete="off" autoFocus />
+                {fieldError('upi')}
                 <p className="mt-2 text-sm text-slate-500">We will send a payment request to your UPI app. Approve it there to pay.</p>
               </div>
             )}
@@ -175,29 +190,38 @@ function PaymentDialog({ method, amount, onClose, onConfirm }) {
               <>
                 <div>
                   <label htmlFor="pay-holder" className={labelCls}>Name on card</label>
-                  <input id="pay-holder" className={inputCls} value={holder} onChange={e => setHolder(e.target.value)} placeholder="As printed on the card" autoComplete="cc-name" autoFocus />
+                  <input id="pay-holder" className={inputCls + fieldCls('holder')} value={holder} onChange={e => { setHolder(e.target.value); clearField('holder') }} placeholder="As printed on the card" autoComplete="cc-name" autoFocus />
+                  {fieldError('holder')}
                 </div>
                 <div>
                   <label htmlFor="pay-card" className={labelCls}>Card number</label>
-                  <input id="pay-card" className={`${inputCls} tabular-nums`} inputMode="numeric" value={cardNo}
-                    onChange={e => setCardNo(e.target.value.replace(/[^\d ]/g, '').slice(0, 23))} placeholder="1234 5678 9012 3456" autoComplete="off" />
+                  <input id="pay-card" className={`${inputCls} tabular-nums${fieldCls('card')}`} inputMode="numeric" value={cardNo}
+                    onChange={e => { setCardNo(e.target.value.replace(/[^\d ]/g, '').slice(0, 23)); clearField('card') }} placeholder="1234 5678 9012 3456" autoComplete="off" />
+                  {fieldError('card')}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="pay-exp" className={labelCls}>Expiry</label>
-                    <input id="pay-exp" className={`${inputCls} tabular-nums`} value={expiry} placeholder="MM/YY" autoComplete="off"
+                    <input id="pay-exp" className={`${inputCls} tabular-nums${fieldCls('exp')}`} inputMode="numeric" value={expiry} placeholder="MM/YY" autoComplete="off"
                       onChange={e => {
                         let v = e.target.value.replace(/[^\d]/g, '').slice(0, 4)
                         if (v.length > 2) v = `${v.slice(0, 2)}/${v.slice(2)}`
                         setExpiry(v)
+                        clearField('exp')
                       }} />
+                    {fieldError('exp')}
                   </div>
                   <div>
                     <label htmlFor="pay-cvv" className={labelCls}>CVV</label>
-                    <input id="pay-cvv" type="password" className={`${inputCls} tabular-nums`} inputMode="numeric" value={cvv}
-                      onChange={e => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="•••" autoComplete="off" />
+                    <input id="pay-cvv" type="password" className={`${inputCls} tabular-nums${fieldCls('cvv')}`} inputMode="numeric" value={cvv}
+                      onChange={e => { setCvv(e.target.value.replace(/\D/g, '').slice(0, 4)); clearField('cvv') }} placeholder="•••" autoComplete="off" />
+                    {fieldError('cvv')}
                   </div>
                 </div>
+                <button type="button" id="fill-test-card" onClick={fillTestCard}
+                  className="w-full rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-semibold text-slate-600 hover:border-slate-500 hover:text-slate-900">
+                  Fill test card details
+                </button>
               </>
             )}
             {method === 'cod' && (

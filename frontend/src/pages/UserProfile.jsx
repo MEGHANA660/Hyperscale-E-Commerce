@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
+import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight, LogOut } from 'lucide-react'
 import { userApi, orderApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useWishlist } from '../context/WishlistContext'
 
 export default function UserProfile() {
-  const { user } = useAuth()
-  if (!user) return <Navigate to="/login?next=/profile" replace />
-  return <UserProfileInner userId={user.id} />
+  const { user, logout } = useAuth()
+  const [leaving, setLeaving] = useState(false)
+  // Logged out on purpose -> go home; otherwise ask the shopper to log in and come back here.
+  if (!user) return <Navigate to={leaving ? '/' : '/login?next=/profile'} replace />
+  return <UserProfileInner userId={user.id} onLogout={() => { setLeaving(true); logout() }} />
 }
 
-function UserProfileInner({ userId: USER_ID }) {
+function UserProfileInner({ userId: USER_ID, onLogout }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -122,9 +124,19 @@ function UserProfileInner({ userId: USER_ID }) {
     <div className="space-y-8 animate-in text-left">
       
       {/* Page Title */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Account Profile</h1>
-        <p className="text-slate-500 text-xs mt-0.5">Manage your preferences, orders, and review service telemetry</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Account Profile</h1>
+          <p className="text-slate-500 text-xs mt-0.5">Manage your preferences, orders, and review service telemetry</p>
+        </div>
+        <button
+          type="button"
+          id="profile-logout-btn"
+          onClick={onLogout}
+          className="btn-pill-light inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold cursor-pointer"
+        >
+          <LogOut size={15} /> Log out
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 items-start">
