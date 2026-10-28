@@ -270,8 +270,11 @@ def seed_database():
             """), u)
         conn.execute(text("SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));"))
 
-        print(f"[4/5] Seeding {len(ORDERS)} orders...")
-        for o in ORDERS:
+        # Demo orders are opt-in. By default a fresh database has NO orders, so the
+        # "My orders" page only ever shows orders that were really placed.
+        demo_orders = ORDERS if os.getenv("SEED_DEMO_ORDERS") == "1" else []
+        print(f"[4/5] Seeding {len(demo_orders)} demo orders (set SEED_DEMO_ORDERS=1 to include them)...")
+        for o in demo_orders:
             conn.execute(text("""
                 INSERT INTO orders (id, user_id, product_id, quantity, total_price, priority, status)
                 VALUES (:id, :user_id, :product_id, :quantity, :total_price, :priority, :status)

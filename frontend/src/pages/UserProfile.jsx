@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { User, Mail, Shield, Settings, Package, Zap, RefreshCw, CheckCircle, Database, BarChart3, ArrowRight } from 'lucide-react'
 import { userApi, orderApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import { useWishlist } from '../context/WishlistContext'
 
 export default function UserProfile() {
   const { user } = useAuth()
@@ -27,6 +28,7 @@ function UserProfileInner({ userId: USER_ID }) {
 
   // Real orders state
   const [orders, setOrders] = useState([])
+  const { wishlist } = useWishlist()
 
   useEffect(() => {
     fetchProfile()
@@ -159,11 +161,11 @@ function UserProfileInner({ userId: USER_ID }) {
           <div className="grid grid-cols-2 gap-4 w-full text-left px-6">
             <div className="bg-slate-50 border border-slate-200/50 p-3.5 rounded-2xl">
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Total Orders</p>
-              <p className="text-base font-black text-slate-800 font-mono mt-0.5">2</p>
+              <p className="text-base font-black text-slate-800 tabular-nums mt-0.5">{orders.length}</p>
             </div>
             <div className="bg-slate-50 border border-slate-200/50 p-3.5 rounded-2xl">
               <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Saved Items</p>
-              <p className="text-base font-black text-slate-800 font-mono mt-0.5">3</p>
+              <p className="text-base font-black text-slate-800 tabular-nums mt-0.5">{wishlist.length}</p>
             </div>
           </div>
 
