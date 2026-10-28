@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ShoppingCart, Search, X, User, Heart, Menu } from 'lucide-react'
+import { ShoppingCart, Search, X, User, Heart, Menu, LogOut } from 'lucide-react'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { productApi, MOCK } from '../services/api'
@@ -51,7 +51,7 @@ export default function Header() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { count } = useCart()
-  const { user: authUser } = useAuth()
+  const { user: authUser, logout } = useAuth()
   const { count: wishlistCount } = useWishlist()
   
   const [query, setQuery] = useState('')
@@ -221,6 +221,20 @@ export default function Header() {
           >
             <User size={16} />
           </Link>
+
+          {/* Log out (only when signed in) */}
+          {authUser && (
+            <button
+              type="button"
+              id="logout-btn"
+              onClick={() => { logout(); navigate('/') }}
+              className="p-1.5 hover:text-red-600 transition-colors flex items-center justify-center rounded-full hover:bg-slate-100/60 cursor-pointer"
+              title="Log out"
+              aria-label="Log out"
+            >
+              <LogOut size={16} />
+            </button>
+          )}
 
           {/* Heart Icon -> Wishlist */}
           <Link 
