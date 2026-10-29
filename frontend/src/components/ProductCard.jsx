@@ -57,7 +57,7 @@ export default function ProductCard({ product }) {
           src={imageUrl}
           onError={onImgError(product)}
           alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          className="w-full h-full object-contain bg-white transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
         />
 

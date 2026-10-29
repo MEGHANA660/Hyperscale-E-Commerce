@@ -198,7 +198,7 @@ export default function ProductDetail() {
             src={imageUrl}
             onError={onImgError(product)}
             alt={product.name} 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain bg-white"
           />
         </div>
 
