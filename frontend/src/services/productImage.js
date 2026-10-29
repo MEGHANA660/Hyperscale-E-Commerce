@@ -113,6 +113,15 @@ export function tileFor(product) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
+// Real photo: put it at public/products/<product id>.jpg. If the file is
+// missing, the browser falls back to the generated illustration (onImgError).
 export function productImage(product) {
-  return product.image_url || product.image || tileFor(product)
+  return product.image_url || product.image || `/products/${product.id}.jpg`
+}
+
+export function onImgError(product) {
+  return e => {
+    const fallback = tileFor(product)
+    if (e.currentTarget.src !== fallback) e.currentTarget.src = fallback
+  }
 }

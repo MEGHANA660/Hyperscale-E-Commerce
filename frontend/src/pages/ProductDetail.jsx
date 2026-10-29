@@ -5,7 +5,7 @@ import { productApi, recApi, MOCK } from '../services/api'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import ProductCard from '../components/ProductCard'
-import { productImage } from '../services/productImage'
+import { productImage, onImgError } from '../services/productImage'
 
 // Map products to premium design brand names
 const BRAND_MAP = {
@@ -195,7 +195,8 @@ export default function ProductDetail() {
         {/* Left Side: Product Image */}
         <div className="w-full aspect-[4/3] rounded-[24px] overflow-hidden bg-slate-105 border border-slate-200/50 relative">
           <img 
-            src={imageUrl} 
+            src={imageUrl}
+            onError={onImgError(product)}
             alt={product.name} 
             className="w-full h-full object-cover"
           />

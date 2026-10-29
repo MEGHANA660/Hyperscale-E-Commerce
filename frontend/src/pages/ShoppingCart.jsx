@@ -6,7 +6,7 @@ import { orderApi, analyticsApi, MOCK } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { MAX_QTY_PER_ITEM } from '../services/limits'
 import PaymentModal from '../components/PaymentModal'
-import { productImage } from '../services/productImage'
+import { productImage, onImgError } from '../services/productImage'
 
 
 function optimizeDiscounts(discounts, budget) {
@@ -292,7 +292,7 @@ export default function ShoppingCart() {
                     {/* Product thumbnail */}
                     <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-105 border border-slate-200/50 shrink-0">
                       {imgSrc ? (
-                        <img src={imgSrc} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                        <img src={imgSrc} onError={onImgError(item)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-2xl select-none bg-slate-50">
                           {({ 'Laptops':'💻','Phones':'📱','Electronics':'🎧','Home':'📺','Fashion':'👕','Beauty':'✨' })[item.category] || '📦'}
@@ -583,7 +583,7 @@ export default function ShoppingCart() {
                 >
                   <div className="aspect-square bg-slate-100 overflow-hidden">
                     {imgSrc && (
-                      <img src={imgSrc} alt={rec.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                      <img src={imgSrc} onError={onImgError(rec)} alt={rec.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                     )}
                   </div>
                   <div className="p-3">
