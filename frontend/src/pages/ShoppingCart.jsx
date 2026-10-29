@@ -292,7 +292,7 @@ export default function ShoppingCart() {
                     {/* Product thumbnail */}
                     <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-105 border border-slate-200/50 shrink-0">
                       {imgSrc ? (
-                        <img src={imgSrc} onError={onImgError(item)} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                        <img src={imgSrc} onError={onImgError(item)} alt={item.name} className="w-full h-full object-contain bg-white" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-2xl select-none bg-slate-50">
                           {({ 'Laptops':'💻','Phones':'📱','Electronics':'🎧','Home':'📺','Fashion':'👕','Beauty':'✨' })[item.category] || '📦'}
