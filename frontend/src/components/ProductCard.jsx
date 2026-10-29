@@ -2,7 +2,7 @@ import { Star, ShoppingCart, ExternalLink, Heart, Sparkles, Send } from 'lucide-
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
-import { productImage } from '../services/productImage'
+import { productImage, onImgError } from '../services/productImage'
 
 // Map products to premium design brand names
 const BRAND_MAP = {
@@ -55,6 +55,7 @@ export default function ProductCard({ product }) {
       <div className="relative aspect-square overflow-hidden bg-slate-50">
         <img
           src={imageUrl}
+          onError={onImgError(product)}
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
