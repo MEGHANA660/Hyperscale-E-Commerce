@@ -29,7 +29,7 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 
 ## 💻 Tech Stack
 
-- **Frontend**: React 18, Vite, Tailwind CSS, Lucide Icons (Port 5173)
+- **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons (Port 5173)
 - **Backend Services**: FastAPI, Python 3.11, Pydantic v2, SQLAlchemy 2.0
 - **Data Stores**: PostgreSQL 15, Redis 7, Elasticsearch 8
 - **Orchestration**: Docker Compose
@@ -48,3 +48,33 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 | **Graph BFS** | Recommendation Service | "Customers also bought" related items | O(V + E) breadth-first search |
 | **Segment Tree** | Analytics Service | Revenue queries across date ranges | O(log n) range query vs O(N) scan |
 | **0/1 Knapsack DP** | Analytics Service | Maximum discount value under budget | O(N * W) pseudo-polynomial time |
+
+---
+
+## ✅ Work Completed
+
+**Checkout & payments**
+- Real order flow: stock is reserved for every item atomically, then payment, then confirmation; on failure the stock is released and the order cancelled (saga with compensation and idempotency keys).
+- Payment now asks for authorisation before "order placed": card (Luhn, expiry, CVV checks) or UPI, followed by a bank-style OTP step. Test mode only, no real money; card data never leaves the browser. Test OTP: `123456`.
+- Delivery options (Standard / Priority / Express) change the total correctly; the free-delivery voucher is capped at ₹150.
+- Cash on delivery supported.
+
+**Catalogue & images**
+- 158 unique products in 7 categories with realistic prices (from the affordable range up), generated from one source (`tools/build_catalog.py` → `data/products.json` + `frontend/src/data/catalog.js`).
+- Every product shows a relevant illustration (icon + name) by default. Real photos can be added by saving them as `frontend/public/products/<product id>.jpg`; the site uses the photo when present and falls back to the illustration. Photos are shown uncropped.
+- Search page: category and price filters, sorting, "Show more" paging.
+
+**Accounts & UI**
+- Login, logout (header and profile page), profile page with real order history and wishlist (demo orders are opt-in via `SEED_DEMO_ORDERS=1`).
+- Full-width responsive layouts, consistent fonts and spacing; an error boundary shows a message instead of a blank page.
+- Discount optimiser (0/1 knapsack) chooses the best vouchers in the cart.
+
+**Quality**
+- 187 backend tests passing (`python -m pytest -q`); end-to-end checks for payment, card validation, logout and catalogue.
+
+## 🔜 Known Limitations / Next Steps
+- Real product photos still to be added for most items.
+- Cash-on-delivery orders are stored as "paid" in the backend.
+- Plain-text passwords in the user service (hash them before any real deployment).
+- Home page category tiles show placeholder counts and external stock images.
+- Tracked `.pyc` files should be removed from git; some docs/metrics figures differ from `benchmarks/results.csv` (the CSV holds the measured values).
