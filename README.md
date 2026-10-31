@@ -55,7 +55,7 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 
 **Checkout & payments**
 - Real order flow: stock is reserved for every item atomically, then payment, then confirmation; on failure the stock is released and the order cancelled (saga with compensation and idempotency keys).
-- Payment now asks for authorisation before "order placed": card (Luhn, expiry, CVV checks) or UPI, followed by a bank-style OTP step. Test mode only, no real money; card data never leaves the browser. Test OTP: `123456`.
+- Payment UI asks for card (Luhn, expiry, CVV checks) or UPI details and a simulated OTP step before "order placed". The OTP (`123456`) and the approval are a frontend simulation in test mode: no real payment gateway, no real money, and no backend OTP verification. Card data never leaves the browser.
 - Delivery options (Standard / Priority / Express) change the total correctly; the free-delivery voucher is capped at ₹150.
 - Cash on delivery supported.
 
@@ -70,11 +70,14 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 - Discount optimiser (0/1 knapsack) chooses the best vouchers in the cart.
 
 **Quality**
-- 187 backend tests passing (`python -m pytest -q`); end-to-end checks for payment, card validation, logout and catalogue.
+- 187 backend tests passing (`python -m pytest -q`).
+- The frontend has no automated test suite in this repository yet (checked manually).
 
 ## 🔜 Known Limitations / Next Steps
 - Real product photos still to be added for most items.
 - Cash-on-delivery orders are stored as "paid" in the backend.
 - Plain-text passwords in the user service (hash them before any real deployment).
 - Home page category tiles show placeholder counts and external stock images.
-- Tracked `.pyc` files should be removed from git; some docs/metrics figures differ from `benchmarks/results.csv` (the CSV holds the measured values).
+- Tracked `.pyc` files should be removed from git; `benchmarks/results.csv` and `benchmarks/comparison_report.md` / `metrics.json` disagree (the report is dated May 2025). The LRU-cache row in the CSV uses fixed illustrative timings (45,000 µs DB vs 400 µs cache), not a live measurement, so treat it as an estimate.
+- No AWS/cloud deployment is included; the stack runs locally with Docker Compose (Kubernetes manifests are in `k8s/`).
+- Real payment-gateway integration and server-side OTP verification are not implemented.
