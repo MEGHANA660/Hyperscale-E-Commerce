@@ -1,6 +1,6 @@
 # HyperScale Commerce
 
-A high-performance e-commerce microservices platform demonstrating that **algorithmic optimization delivers measurable gains over naive implementations**. Built with 5 core FastAPI services, 7 Data Structures & Algorithms, a React + Vite + Tailwind frontend ("CartBlitz"), PostgreSQL 15, Redis 7, and Elasticsearch 8.
+A high-performance e-commerce microservices platform demonstrating that **algorithmic optimization delivers measurable gains over naive implementations**. Built with 5 core FastAPI services, 7 Data Structures & Algorithms, a React + Vite + Tailwind frontend ("CartBlitz"), PostgreSQL 15, and Redis 7.
 
 ---
 
@@ -31,7 +31,7 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 
 - **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons (Port 5173)
 - **Backend Services**: FastAPI, Python 3.11, Pydantic v2, SQLAlchemy 2.0
-- **Data Stores**: PostgreSQL 15, Redis 7, Elasticsearch 8
+- **Data Stores**: PostgreSQL 15, Redis 7
 - **Orchestration**: Docker Compose
 - **Testing**: pytest, pytest-asyncio
 
