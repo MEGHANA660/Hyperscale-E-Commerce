@@ -27,7 +27,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r master_requirements.txt
-          pip install pytest pytest-asyncio httpx
 
       - name: Run unit tests
         run: pytest tests/ -v --tb=short
@@ -91,7 +90,8 @@ jobs:
     name: Deploy (Docker Compose)
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Only runs once you add the repo variable DEPLOY_ENABLED=true and the SSH secrets
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
     environment: production
 
     steps:

@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-sqlalchemy
+sqlalchemy>=2.0,<2.1
 psycopg2-binary
 pydantic
 motor
@@ -13,3 +13,6 @@ httpx
 python-dotenv
 bcrypt
 PyJWT==2.9.0
+pyyaml
+pytest
+pytest-asyncio
