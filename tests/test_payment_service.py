@@ -74,3 +74,23 @@ def test_refund_once_and_only_for_success(pay):
     assert r.status_code == 200 and r.json()["status"] == "refunded"
     assert client.post(f"/payments/{txn}/refund", headers=h).json()["idempotent_replay"] is True
     assert client.post("/payments/txn-nope/refund", headers=h).status_code == 404
+
+
+@pytest.mark.integration
+def test_customer_cannot_refund_or_read_payments(pay):
+    client, admin_h = pay
+    txn = client.post("/payments/process", json=_body(), headers=admin_h).json()["transaction_id"]
+    customer_h = {"Authorization": f"Bearer {make_token(user_id='usr-9', username='bob', role='customer')}"}
+    assert client.post(f"/payments/{txn}/refund", headers=customer_h).status_code == 403
+    assert client.get(f"/payments/{txn}", headers=customer_h).status_code == 403
+    # nothing was refunded by the rejected call
+    assert client.get(f"/payments/{txn}", headers=admin_h).json()["status"] == "success"
+
+
+@pytest.mark.integration
+def test_service_role_can_refund_and_read(pay):
+    client, admin_h = pay
+    txn = client.post("/payments/process", json=_body(), headers=admin_h).json()["transaction_id"]
+    svc_h = {"Authorization": f"Bearer {make_token(user_id='order-service', username='order-service', role='service')}"}
+    assert client.get(f"/payments/{txn}", headers=svc_h).status_code == 200
+    assert client.post(f"/payments/{txn}/refund", headers=svc_h).json()["status"] == "refunded"
