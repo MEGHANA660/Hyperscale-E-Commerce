@@ -107,25 +107,35 @@ async def startup_event():
     db = None
     try:
         db = next(get_db())
-        pending_orders = db.query(models.Order).filter(models.Order.status == "pending").all()
-        for o in pending_orders:
-            order_info = {
-                "id": o.id,
-                "user_id": o.user_id,
-                "product_id": o.product_id,
-                "quantity": o.quantity,
-                "total_price": o.total_price,
-                "priority": o.priority or 3,
-                "status": o.status
-            }
-            order_queue.push(o.priority or 3, order_info)
-            heap_stats["total_enqueued"] += 1
-        await logger.info(f"Order Service started. Min Heap initialized with {order_queue.size()} pending orders.")
+        count = warm_queue(db)
+        await logger.info(f"Order Service started. Min Heap initialized with {count} paid orders.")
     except Exception as e:
         await logger.warning(f"Could not warm Min Heap on startup: {e}")
     finally:
         if db:
             db.close()
+
+
+def warm_queue(db: Session) -> int:
+    """Rebuild the fulfilment queue after a restart.
+
+    The queue holds orders that are PAID and waiting to be fulfilled (that is when
+    create_order pushes them). Pending/reserved orders are unpaid and are never queued.
+    """
+    order_queue.heap = []
+    paid_orders = db.query(models.Order).filter(models.Order.status == "paid").all()
+    for o in paid_orders:
+        order_queue.push(o.priority or 3, {
+            "id": o.id,
+            "user_id": o.user_id,
+            "product_id": o.product_id,
+            "quantity": o.quantity,
+            "total_price": o.total_price,
+            "priority": o.priority or 3,
+            "status": o.status,
+        })
+        heap_stats["total_enqueued"] += 1
+    return len(paid_orders)
 
 @app.get("/health")
 def health_check():
