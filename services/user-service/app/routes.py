@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .database import get_db
 from .models import User
+from .passwords import hash_password, verify_password
 from shared.dsa.lru_cache import LRUCache
 
 router = APIRouter()
@@ -56,7 +57,7 @@ async def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
-    user = User(username=payload.username, email=payload.email, hashed_password=payload.password)
+    user = User(username=payload.username, email=payload.email, hashed_password=hash_password(payload.password))
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -67,7 +68,7 @@ async def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 async def login(payload: LoginRequest, db: Session = Depends(get_db)):
     """Simple login (no JWT for demo purposes)."""
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user or user.hashed_password != payload.password:
+    if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     user_data = {"id": user.id, "username": user.username, "email": user.email, "role": user.role}
     user_cache.put(user.id, user_data)

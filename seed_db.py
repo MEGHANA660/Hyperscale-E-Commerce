@@ -7,6 +7,7 @@ Seeds PostgreSQL with:
 Run: python seed_db.py
 """
 
+import bcrypt
 import json
 import os
 import sys
@@ -140,7 +141,7 @@ def seed_database():
                     email = EXCLUDED.email,
                     hashed_password = EXCLUDED.hashed_password,
                     role = EXCLUDED.role;
-            """), u)
+            """), {**u, "password": bcrypt.hashpw(u["password"].encode(), bcrypt.gensalt()).decode()})
         conn.execute(text("SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));"))
 
         # Demo orders are opt-in. By default a fresh database has NO orders, so the

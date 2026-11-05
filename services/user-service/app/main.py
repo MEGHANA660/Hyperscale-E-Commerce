@@ -8,6 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from . import models
+from .passwords import hash_password, is_hashed, verify_password
 from .database import engine, get_db, init_db
 from shared.dsa.lru_cache import LRUCache
 from shared.core_logger.logger import CoreLogger
@@ -71,7 +72,17 @@ class LoginRequest(BaseModel):
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user, return JWT token, and warm LRU cache."""
     user = db.query(models.User).filter(models.User.username == req.username).first()
-    if not user or user.hashed_password != req.password:
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
+    if is_hashed(user.hashed_password):
+        ok = verify_password(req.password, user.hashed_password)
+    else:
+        # Old row still holding a plain-text password: accept once, then re-save it hashed.
+        ok = user.hashed_password == req.password
+        if ok:
+            user.hashed_password = hash_password(req.password)
+            db.commit()
+    if not ok:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     
     token_payload = {
@@ -153,7 +164,7 @@ async def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     new_user = models.User(
         username=payload.username, 
         email=payload.email, 
-        hashed_password=payload.password,
+        hashed_password=hash_password(payload.password),
         role=payload.role
     )
     db.add(new_user)

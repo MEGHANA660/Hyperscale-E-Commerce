@@ -549,3 +549,16 @@ def test_gateway_health(gateway_client):
 def test_gateway_unknown_service(gateway_client):
     r = gateway_client.get("/nonexistent/endpoint")
     assert r.status_code == 404
+
+
+def test_user_passwords_are_hashed_and_login_works(user_client):
+    """Passwords are stored as bcrypt hashes, never plain text, and login still works."""
+    r = user_client.post("/users", json={"username": "hashuser", "email": "hash@example.com", "password": "S3cret!pw"})
+    assert r.status_code == 201
+    from sqlalchemy import text
+    db = next(next(iter(user_client.app.dependency_overrides.values()))())
+    stored = db.execute(text("SELECT hashed_password FROM users WHERE username='hashuser'")).scalar_one()
+    db.close()
+    assert stored != "S3cret!pw" and stored.startswith("$2")
+    assert user_client.post("/login", json={"username": "hashuser", "password": "S3cret!pw"}).status_code == 200
+    assert user_client.post("/login", json={"username": "hashuser", "password": "wrong"}).status_code == 401
