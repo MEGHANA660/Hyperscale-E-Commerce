@@ -94,3 +94,23 @@ def test_service_role_can_refund_and_read(pay):
     svc_h = {"Authorization": f"Bearer {make_token(user_id='order-service', username='order-service', role='service')}"}
     assert client.get(f"/payments/{txn}", headers=svc_h).status_code == 200
     assert client.post(f"/payments/{txn}/refund", headers=svc_h).json()["status"] == "refunded"
+
+
+@pytest.mark.integration
+def test_one_successful_payment_per_order(pay):
+    client, h = pay
+    first = client.post("/payments/process", json=_body(order_id="o-77"), headers={**h, "Idempotency-Key": "k1"})
+    assert first.status_code == 200
+    # same order, different idempotency key: must NOT charge again
+    second = client.post("/payments/process", json=_body(order_id="o-77"), headers={**h, "Idempotency-Key": "k2"})
+    assert second.status_code == 409
+    # a different order is unaffected
+    assert client.post("/payments/process", json=_body(order_id="o-78"), headers={**h, "Idempotency-Key": "k3"}).status_code == 200
+
+
+@pytest.mark.integration
+def test_order_can_be_paid_again_after_failed_attempt(pay):
+    client, h = pay
+    bad = client.post("/payments/process", json=_body(order_id="o-90", payment_method="card_declined"), headers={**h, "Idempotency-Key": "a"})
+    assert bad.status_code == 402
+    assert client.post("/payments/process", json=_body(order_id="o-90"), headers={**h, "Idempotency-Key": "b"}).status_code == 200
