@@ -74,3 +74,20 @@ def test_refund_once_and_only_for_success(pay):
     assert r.status_code == 200 and r.json()["status"] == "refunded"
     assert client.post(f"/payments/{txn}/refund", headers=h).json()["idempotent_replay"] is True
     assert client.post("/payments/txn-nope/refund", headers=h).status_code == 404
+
+@pytest.mark.integration
+def test_one_successful_payment_per_order(pay):
+    client, h = pay
+    first = client.post("/payments/process", json=_body(order_id="o-77"), headers={**h, "Idempotency-Key": "k1"})
+    assert first.status_code == 200
+    second = client.post("/payments/process", json=_body(order_id="o-77"), headers={**h, "Idempotency-Key": "k2"})
+    assert second.status_code == 409
+    assert client.post("/payments/process", json=_body(order_id="o-78"), headers={**h, "Idempotency-Key": "k3"}).status_code == 200
+
+
+@pytest.mark.integration
+def test_order_can_be_paid_again_after_failed_attempt(pay):
+    client, h = pay
+    bad = client.post("/payments/process", json=_body(order_id="o-90", payment_method="card_declined"), headers={**h, "Idempotency-Key": "a"})
+    assert bad.status_code == 402
+    assert client.post("/payments/process", json=_body(order_id="o-90"), headers={**h, "Idempotency-Key": "b"}).status_code == 200

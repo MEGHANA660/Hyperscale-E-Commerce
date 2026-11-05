@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, Integer, String, Float, DateTime, create_engine
+from sqlalchemy import text, Column, Integer, String, Float, DateTime, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.pool import StaticPool
@@ -58,6 +58,15 @@ def get_db():
 @app.on_event("startup")
 def _create_tables():
     Base.metadata.create_all(bind=engine)
+    # At most one successful payment per order, enforced by the database itself.
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_payments_one_success_per_order "
+                "ON payments (order_id) WHERE status = 'success' AND order_id IS NOT NULL"
+            ))
+    except Exception:
+        pass
 
 
 # ── Sandbox gateway rules (stand-in for Stripe / Razorpay) ───────────────────
@@ -121,7 +130,10 @@ def process_payment(
             if prior.status == "failed":
                 raise HTTPException(status_code=402, detail=prior.failure_reason or "Payment declined")
             return {**_view(prior), "idempotent_replay": True}
-
+    if req.order_id:
+        live = db.query(Payment).filter(Payment.order_id == req.order_id, Payment.status == "success").first()
+        if live:
+            raise HTTPException(status_code=409, detail=f"Order {req.order_id} is already paid (transaction {live.transaction_id})")
     failure = None
     if req.amount > MAX_AMOUNT:
         failure = f"Amount exceeds sandbox limit of {MAX_AMOUNT:.0f}"
@@ -145,7 +157,9 @@ def process_payment(
     except IntegrityError:
         # Concurrent request with the same key won the race: return its result.
         db.rollback()
-        prior = db.query(Payment).filter(Payment.idempotency_key == idempotency_key).first()
+        prior = db.query(Payment).filter(Payment.idempotency_key == idempotency_key).first() if idempotency_key else None
+        if prior is None and req.order_id:
+            raise HTTPException(status_code=409, detail=f"Order {req.order_id} is already paid")
         if prior and prior.status == "success":
             return {**_view(prior), "idempotent_replay": True}
         raise HTTPException(status_code=402, detail=(prior.failure_reason if prior else "Payment failed"))
