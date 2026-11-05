@@ -89,6 +89,11 @@ async def security_middleware(request: Request, call_next):
     response = await call_next(request)
     return add_security_headers(response)
 
+def require_service_or_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """Refunds and payment lookups are internal: only the order service ("service") or an admin may call them."""
+    if current_user.get("role") not in ("service", "admin"):
+        raise HTTPException(status_code=403, detail="Not allowed: this action needs the service or admin role")
+    return current_user
 
 def _view(p: Payment) -> dict:
     return {
@@ -150,7 +155,7 @@ def process_payment(
 
 
 @app.post("/payments/{transaction_id}/refund")
-def refund_payment(transaction_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def refund_payment(transaction_id: str, current_user: dict = Depends(require_service_or_admin), db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.transaction_id == transaction_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -164,7 +169,7 @@ def refund_payment(transaction_id: str, current_user: dict = Depends(get_current
 
 
 @app.get("/payments/{transaction_id}")
-def get_payment(transaction_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_payment(transaction_id: str, current_user: dict = Depends(require_service_or_admin), db: Session = Depends(get_db)):
     payment = db.query(Payment).filter(Payment.transaction_id == transaction_id).first()
     if not payment:
         raise HTTPException(status_code=404, detail="Transaction not found")
