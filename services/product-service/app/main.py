@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -44,7 +45,7 @@ async def verify_jwt_token(credentials: Optional[HTTPAuthorizationCredentials] =
 async def security_middleware(request: Request, call_next):
     ip = request.client.host if request.client else "127.0.0.1"
     if not await rate_limiter.check_rate_limit(ip):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+                return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
     response = await call_next(request)
     return add_security_headers(response)
 
