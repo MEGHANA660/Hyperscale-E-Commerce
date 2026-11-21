@@ -1,6 +1,6 @@
 # HyperScale Commerce
 
-A high-performance e-commerce microservices platform demonstrating that **algorithmic optimization delivers measurable gains over naive implementations**. Built with 5 core FastAPI services, 7 Data Structures & Algorithms, a React + Vite + Tailwind frontend ("CartBlitz"), PostgreSQL 15, and Redis 7.
+A high-performance e-commerce microservices platform demonstrating that **algorithmic optimization delivers measurable gains over naive implementations**. Built with 5 core FastAPI services, 7 Data Structures & Algorithms, a React + Vite + Tailwind frontend, PostgreSQL 15, and Redis 7.
 
 ---
 
@@ -70,11 +70,11 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 - Discount optimiser (0/1 knapsack) chooses the best vouchers in the cart.
 
 **Quality**
-- 187 backend tests passing (`python -m pytest -q`).
+- 195 backend tests passing (`python -m pytest -q`).
 - The frontend has no automated test suite in this repository yet (checked manually).
 
 **CI/CD (GitHub Actions, `.github/workflows/ci-cd.yml`)**
-- On every push to `main` (and pull requests): installs `master_requirements.txt` on Python 3.11 and runs `pytest tests/` (187 tests).
+- On every push to `main` (and pull requests): installs `master_requirements.txt` on Python 3.11 and runs `pytest tests/` (195 tests).
 - On push to `main`, after tests pass: builds Docker images for the services and pushes them to GitHub Container Registry (`ghcr.io`), tagged `latest` and with the commit SHA.
 - The SSH deploy job (`docker compose up` on a server) is written but disabled by default. It runs only when the repository variable `DEPLOY_ENABLED=true` and the secrets `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_SSH_KEY` are set. No server is currently deployed.
 - Dependencies are pinned where it matters (`sqlalchemy>=2.0,<2.1`) so a clean install matches the tested setup.
@@ -82,6 +82,5 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 ## 🔜 Known Limitations / Next Steps
 - Real product photos still to be added for most items.
 - Cash-on-delivery orders are stored as "paid" in the backend.
-- Plain-text passwords in the user service (hash them before any real deployment).
 - Home page category tiles show placeholder counts and external stock images.
 - Tracked `.pyc` files should be removed from git; some docs/metrics figures differ from `benchmarks/results.csv` (the CSV holds the measured values).
