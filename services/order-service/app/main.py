@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Header
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -86,7 +87,7 @@ def _owned_order_or_404(db: Session, order_id: int, user: CurrentUser) -> models
 async def security_middleware(request: Request, call_next):
     ip = request.client.host if request.client else "127.0.0.1"
     if not await rate_limiter.check_rate_limit(ip):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+                return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
     response = await call_next(request)
     return add_security_headers(response)
 
@@ -104,28 +105,30 @@ async def startup_event():
     await logger.connect()
     if os.getenv("DISABLE_EXPIRY_LOOP") != "1":
         asyncio.create_task(_expiry_loop())
-    db = None
+        db = None
     try:
         db = next(get_db())
-        pending_orders = db.query(models.Order).filter(models.Order.status == "pending").all()
-        for o in pending_orders:
-            order_info = {
-                "id": o.id,
-                "user_id": o.user_id,
-                "product_id": o.product_id,
-                "quantity": o.quantity,
-                "total_price": o.total_price,
-                "priority": o.priority or 3,
-                "status": o.status
-            }
-            order_queue.push(o.priority or 3, order_info)
-            heap_stats["total_enqueued"] += 1
-        await logger.info(f"Order Service started. Min Heap initialized with {order_queue.size()} pending orders.")
+        count = warm_queue(db)
+        await logger.info(f"Order Service started. Min Heap initialized with {count} paid orders.")
     except Exception as e:
         await logger.warning(f"Could not warm Min Heap on startup: {e}")
     finally:
         if db:
             db.close()
+
+
+def warm_queue(db: Session) -> int:
+    """Rebuild the fulfilment queue after a restart: PAID orders only."""
+    order_queue.heap = []
+    paid_orders = db.query(models.Order).filter(models.Order.status == "paid").all()
+    for o in paid_orders:
+        order_queue.push(o.priority or 3, {
+            "id": o.id, "user_id": o.user_id, "product_id": o.product_id,
+            "quantity": o.quantity, "total_price": o.total_price,
+            "priority": o.priority or 3, "status": o.status,
+        })
+        heap_stats["total_enqueued"] += 1
+    return len(paid_orders)
 
 @app.get("/health")
 def health_check():
