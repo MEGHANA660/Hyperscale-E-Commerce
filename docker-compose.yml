@@ -65,7 +65,7 @@ services:
     ports:
       - "5008:8000"
     environment:
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-me}
+            - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-prod}
 
   cart-service:
     build:

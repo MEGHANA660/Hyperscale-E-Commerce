@@ -78,6 +78,6 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 - Cash-on-delivery orders are stored as "paid" in the backend.
 - Plain-text passwords in the user service (hash them before any real deployment).
 - Home page category tiles show placeholder counts and external stock images.
-- Tracked `.pyc` files should be removed from git; `benchmarks/results.csv` and `benchmarks/comparison_report.md` / `metrics.json` disagree (the report is dated May 2025). The LRU-cache row in the CSV uses fixed illustrative timings (45,000 µs DB vs 400 µs cache), not a live measurement, so treat it as an estimate.
+- Benchmark results are in `benchmarks/results.csv`. The LRU-cache row uses fixed illustrative timings, so treat it as an estimate.
 - No AWS/cloud deployment is included; the stack runs locally with Docker Compose (Kubernetes manifests are in `k8s/`).
 - Real payment-gateway integration and server-side OTP verification are not implemented.

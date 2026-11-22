@@ -83,4 +83,4 @@ The architecture is centered on 5 domain-driven microservices, each embedding a 
 - Real product photos still to be added for most items.
 - Cash-on-delivery orders are stored as "paid" in the backend.
 - Home page category tiles show placeholder counts and external stock images.
-- Tracked `.pyc` files should be removed from git; some docs/metrics figures differ from `benchmarks/results.csv` (the CSV holds the measured values).
+- Benchmark results are in `benchmarks/results.csv`. The LRU-cache row uses fixed illustrative timings, so treat it as an estimate.
