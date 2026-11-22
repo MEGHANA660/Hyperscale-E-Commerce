@@ -186,7 +186,7 @@ export default function Home() {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {[
           { label: 'Free 2-day shipping', detail: 'On orders over ₹5,000', icon: Truck },
-          { label: '60-day returns',      detail: 'No questions asked',     icon: RotateCcw },
+          { label: '7-day returns',       detail: 'Unused items, original packaging', icon: RotateCcw },
           { label: 'Buyer protection',   detail: 'Every purchase secured',  icon: ShieldCheck },
           { label: 'Member rewards',     detail: 'Earn 2× points always',   icon: Sparkles },
         ].map((feat, idx) => {
