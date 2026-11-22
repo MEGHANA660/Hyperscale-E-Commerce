@@ -129,7 +129,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 transition-all duration-300">
       {/* Top Announcement Bar */}
       <div className="w-full bg-slate-900 text-white text-xs sm:text-xs py-1 px-4 text-center tracking-wide font-medium">
-        Free 2-day shipping on orders over ₹5,000 · 60-day returns · Members earn 2× points
+        Free 2-day shipping on orders over ₹5,000 · 7-day returns on unused items · Members earn 2× points
       </div>
 
       {/* Main Navbar */}

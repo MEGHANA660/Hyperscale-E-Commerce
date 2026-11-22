@@ -39,7 +39,10 @@ export function clearSession() {
   } catch { /* ignore */ }
   window.dispatchEvent(new Event('hsc-logout'))
 }
-
+// Tells the UI whether the backend answered (drives the "demo data" banner in the header).
+function setBackendOnline(online) {
+  window.dispatchEvent(new CustomEvent('hsc-backend', { detail: { online } }))
+}
 // Generic fetch helper with error handling
 async function apiFetch(url, options = {}) {
   try {
@@ -52,8 +55,10 @@ async function apiFetch(url, options = {}) {
         ...options.headers,
       },
     })
+    setBackendOnline(true)
     if (res.status === 401 && token) {
       clearSession() // token expired or rejected: send the shopper back to the login page
+    
       throw new Error('Your session expired. Please log in again.')
     }
     if (!res.ok) {
@@ -65,6 +70,7 @@ async function apiFetch(url, options = {}) {
     console.warn(`[API Error] ${url}:`, error.message)
     if (error instanceof TypeError) {
       // fetch() throws a bare TypeError ("Failed to fetch") when the server cannot be reached at all.
+      setBackendOnline(false)
       throw new Error("Can't reach the server. Make sure the backend is running, then try again.")
     }
     throw error
