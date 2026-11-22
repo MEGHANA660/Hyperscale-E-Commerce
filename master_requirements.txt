@@ -6,7 +6,6 @@ pydantic
 motor
 redis
 elasticsearch>=8.0.0
-aiokafka
 celery
 requests
 httpx

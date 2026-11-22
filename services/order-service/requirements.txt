@@ -3,7 +3,6 @@ uvicorn
 sqlalchemy>=2.0,<2.1
 psycopg2-binary
 pydantic
-aiokafka
 motor
 python-dotenv
 httpx

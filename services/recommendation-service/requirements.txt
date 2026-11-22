@@ -4,7 +4,6 @@ redis
 motor
 python-dotenv
 pydantic
-aiokafka
 python-multipart
 PyJWT==2.9.0
 
