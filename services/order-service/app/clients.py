@@ -47,7 +47,17 @@ def reserve_stock(product_id: int, quantity: int, order_ref: str | None = None) 
     return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/reserve",
                  {"quantity": quantity, "order_ref": order_ref}, name="Product service")
 
-
+def get_price(product_id: int) -> float:
+    """Current catalogue price, read from the Product service (the source of truth)."""
+    try:
+        resp = httpx.get(f"{PRODUCT_SERVICE_URL}/products/{product_id}", timeout=TIMEOUT)
+    except httpx.HTTPError as e:
+        raise ServiceError(503, f"Product service unreachable ({e.__class__.__name__})")
+    if resp.status_code == 404:
+        raise ServiceError(404, f"Product {product_id} not found")
+    if resp.status_code >= 400:
+        raise ServiceError(503, "Product service error")
+    return float(resp.json()["price"])
 def release_stock(product_id: int, quantity: int, order_ref: str | None = None) -> dict:
     return _post(f"{PRODUCT_SERVICE_URL}/products/{product_id}/release",
                  {"quantity": quantity, "order_ref": order_ref}, name="Product service")

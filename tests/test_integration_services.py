@@ -73,6 +73,10 @@ def make_db_client(service_name: str):
     import app.database as db_mod
     import app.models  # Ensure models are registered on Base
 
+    if service_name == "order-service":
+        import app.clients as _clients  # the Product service is faked: every product costs Rs 50
+        _clients.get_price = lambda pid: 50.0
+
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},

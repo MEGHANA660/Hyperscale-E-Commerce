@@ -120,7 +120,7 @@ async def startup_event():
 def warm_queue(db: Session) -> int:
     """Rebuild the fulfilment queue after a restart: PAID orders only."""
     order_queue.heap = []
-    paid_orders = db.query(models.Order).filter(models.Order.status == "paid").all()
+    paid_orders = db.query(models.Order).filter(models.Order.status.in_(FULFIL_STATES)).all()
     for o in paid_orders:
         order_queue.push(o.priority or 3, {
             "id": o.id, "user_id": o.user_id, "product_id": o.product_id,
@@ -155,6 +155,7 @@ EXPIRY_SWEEP_SECONDS = int(os.getenv("EXPIRY_SWEEP_SECONDS", "60"))
 # Order states: pending -> reserved -> paid -> delivered
 #               failed | payment_failed | expired | cancelled | refunded
 HOLDING_STATES = ("pending", "reserved")                       # in flight; stuck ones expire
+FULFIL_STATES = ("paid", "cod_pending")   # confirmed orders waiting to be delivered
 RELEASED_STATES = ("failed", "payment_failed", "expired", "cancelled", "refunded")
 
 
@@ -238,7 +239,25 @@ def _charge_with_one_retry(order_id: int, amount: float, method: str, key: str) 
             raise
         return clients.charge(str(order_id), amount, method, key)
 
+# The cart applies up to 10% + 5% off, a flat Rs 1,500 coupon and Rs 150 off delivery, and adds
+# delivery of up to Rs 1,000. The server cannot know which promotions the cart picked, so it
+# accepts any total inside the range those rules allow and rejects anything outside it.
+MAX_PERCENT_OFF = 0.15
+MAX_FLAT_OFF = 1500.0
+MAX_SHIPPING = 1000.0
 
+
+def _check_total(lines: Dict[int, int], claimed: float) -> None:
+    """Price the cart from the Product service; reject a total the browser could not honestly send."""
+    subtotal = 0.0
+    for pid, qty in lines.items():
+        subtotal += clients.get_price(pid) * qty
+    lowest = max(0.0, subtotal * (1 - MAX_PERCENT_OFF) - MAX_FLAT_OFF)
+    highest = subtotal + MAX_SHIPPING
+    if not (lowest - 1 <= claimed <= highest + 1):
+        raise HTTPException(status_code=422, detail="Order total does not match product prices")
+
+    
 @app.post("/orders", status_code=status.HTTP_201_CREATED)
 async def create_order(
     payload: OrderCreate,
@@ -263,6 +282,10 @@ async def create_order(
 
     lines = _parse_lines(payload)
     primary_pid, primary_qty = next(iter(lines.items()))
+    try:
+        await run_in_threadpool(_check_total, lines, payload.total_price)
+    except clients.ServiceError as e:
+        raise HTTPException(status_code=e.status_code if e.status_code == 404 else 503, detail=e.detail)
 
     # 1. Persist first, so every outcome (and every crash) leaves a record to clean up.
     order = models.Order(
@@ -300,12 +323,16 @@ async def create_order(
         raise HTTPException(status_code=e.status_code if e.status_code in (404, 409) else 503, detail=e.detail)
     _set_status(db, order, "reserved")
 
-    # 3. Take payment.
+        # 3. Take payment. Cash on delivery takes none now: the order is confirmed and paid at the door.
     pay_key = idemp_key or f"order-{order.id}"
+    is_cod = payload.payment_method == "cod"
     try:
-        payment = await run_in_threadpool(
-            _charge_with_one_retry, order.id, payload.total_price, payload.payment_method, pay_key
-        )
+        if is_cod:
+            payment = {"status": "pay_on_delivery", "transaction_id": None}
+        else:
+            payment = await run_in_threadpool(
+                _charge_with_one_retry, order.id, payload.total_price, payload.payment_method, pay_key
+            )
     except clients.ServiceError as e:
         if not await run_in_threadpool(_release_held, db, order):
             await logger.error(f"Order {order.id}: stock release incomplete; the expiry sweep will retry.")
@@ -315,7 +342,7 @@ async def create_order(
 
     # 4. Mark paid. If we cannot record it, undo the charge and the reservation.
     try:
-        order.status = "paid"
+        order.status = "cod_pending" if is_cod else "paid"
         order.payment_txn_id = payment.get("transaction_id")
         db.commit()
     except Exception as exc:
