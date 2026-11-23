@@ -233,7 +233,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex flex-col justify-end p-4 text-left">
                 <h3 className="text-white text-sm sm:text-base font-extrabold tracking-tight leading-tight">{cat.name}</h3>
                 <span className="inline-block w-fit px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-wider text-slate-900 bg-white/95 backdrop-blur-xs mt-2 shadow-xs transition-colors duration-300 group-hover:bg-slate-900 group-hover:text-white">
-                  {cat.count}
+                  Shop now
                 </span>
               </div>
             </Link>
