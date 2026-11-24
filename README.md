@@ -1,86 +1,101 @@
-# HyperScale Commerce
+HyperScale Commerce
 
-A high-performance e-commerce microservices platform demonstrating that **algorithmic optimization delivers measurable gains over naive implementations**. Built with 5 core FastAPI services, 7 Data Structures & Algorithms, a React + Vite + Tailwind frontend, PostgreSQL 15, and Redis 7.
+An e-commerce microservices platform that applies classic data structures and algorithms to concrete shop bottlenecks (search, queueing, caching, recommendations, analytics, discounts) and measures them against naive versions. Built with FastAPI services, a React + Vite + Tailwind storefront, PostgreSQL 15 and Redis 7, run with Docker Compose.
 
----
+Payments are simulated (test mode). There is no real payment gateway and no real money.
 
-## 🏗️ Architecture (5 Core Services)
+🏗️ Architecture
 
-The architecture is centered on 5 domain-driven microservices, each embedding a specific Data Structure & Algorithm (DSA) to solve a concrete e-commerce bottleneck:
+The storefront (React) calls the FastAPI services over HTTP with a JWT. Services own their own data; they talk to each other through APIs, not each other's tables.
 
-1. **Product Service (Port 8001 / 5002)**: Product catalog and inventory ownership.
-   - **Trie**: O(m) prefix autocomplete search (vs. SQL `LIKE`).
-   - **Bloom Filter**: O(k) existence pre-check guarding database queries for invalid product IDs.
-   - **Atomic Stock Reservation**: Concurrency-safe atomic conditional update preventing flash-sale overselling.
-2. **User Service (Port 8002 / 5001)**: Customer and admin profile management.
-   - **LRU Cache (Capacity 1,000)**: O(1) in-memory profile retrieval with hit/miss tracking.
-3. **Order Service (Port 8003 / 5004)**: Order lifecycle and fulfillment.
-   - **Min Heap**: O(log n) order priority queue (Express > Priority > Standard fulfillment).
-   - **Idempotent Payment Sandbox**: Idempotency-Key deduplication and robust order state machine.
-4. **Recommendation Service (Port 8004 / 5005)**: Co-purchase graph recommendations.
-   - **Graph BFS**: O(V+E) traversal for "Customers Also Bought" recommendations.
-5. **Analytics Service (Port 8005 / 5006)**: Sales reporting and promotion optimization.
-   - **Segment Tree**: O(log n) range query for date-range revenue analytics.
-   - **0/1 Knapsack (Dynamic Programming)**: Optimal discount allocation under a strict marketing budget.
+Service	Host port	What it owns	DSA used
+Product	5002	Catalogue and stock (atomic reserve / release)	Trie, Bloom filter
+User	5001	Accounts, login (bcrypt + JWT), profiles	LRU cache
+Order	5004	Order lifecycle, checkout saga, fulfilment queue	Min-Heap
+Payment	5010	Simulated charges, idempotency, refunds	none
+Recommendation	5005	"Customers also bought"	Graph BFS
+Analytics	5006	Revenue reports, discount optimiser	Segment tree, 0/1 knapsack
 
-*Note on legacy scaffold services:* The repository contains prototype folders (`cart_service`, `payment_service`, `inventory-service`, `auth-service`, `notification-service`, `review_service`, `main-service`) created during early scaffolding. In accordance with the system design in `ARCHITECTURE.md`, inventory is owned strictly by the Product service, checkout & payment sandbox are owned by the Order service, and auth is handled centrally.
+Checkout (saga): the Order service saves the order as pending, reserves stock for every item through the Product service (atomic conditional UPDATE), then charges through the Payment service (idempotency key), then marks the order paid. If any step fails, stock is released and the order is cancelled or failed. Orders stuck mid-way are expired by a background sweep.
 
----
+The repository also contains earlier prototype folders (cart_service, auth-service, inventory-service, notification-service, review_service, main-service). They are not part of the checkout flow above; stock is owned by the Product service.
 
-## 💻 Tech Stack
+💻 Tech Stack
+Frontend: React 19, Vite, Tailwind CSS v4, Lucide icons
+Backend: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2.0
+Data: PostgreSQL 15, Redis 7
+Run: Docker Compose
+Tests: pytest (backend), Vitest (frontend)
+CI: GitHub Actions
+📊 Data Structures & Algorithms
+DSA	Service	Where it is used	Complexity
+Trie	Product	Search autocomplete	O(m) prefix lookup
+Bloom filter	Product	Skip the database for product IDs that cannot exist	O(k) check, no false negatives
+LRU cache	User	Fast profile lookups with eviction	O(1) get/put
+Min-Heap	Order	Fulfilment order: Express, then Priority, then Standard	O(log n) push/pop
+Graph BFS	Recommendation	Related products from co-purchases	O(V+E)
+Segment tree	Analytics	Revenue over a date range	O(log n) range query
+0/1 knapsack (DP)	Analytics / cart	Best set of discounts under a budget	O(N·W)
+Benchmarks
 
-- **Frontend**: React 19, Vite, Tailwind CSS v4, Lucide Icons (Port 5173)
-- **Backend Services**: FastAPI, Python 3.11, Pydantic v2, SQLAlchemy 2.0
-- **Data Stores**: PostgreSQL 15, Redis 7
-- **Orchestration**: Docker Compose
-- **Testing**: pytest, pytest-asyncio
+Measured in-memory with benchmarks/performance_tests.py; raw numbers are in benchmarks/results.csv. They compare each structure with a naive version on synthetic data, so treat them as micro-benchmarks, not production load tests.
 
----
+DSA	Naive	Optimised	Speed-up
+Trie search	linear scan	Trie	about 115x
+Min-Heap	sort	heap pop	about 17x
+Segment tree	linear sum	range query	about 9x
+Graph BFS	naive O(V·E)	BFS	about 6x
 
-## 📊 7 Data Structures & Algorithms (DSA Mapping)
+The Bloom filter row is a count (about 54% of lookups for invalid IDs avoided the database), not a speed-up. The LRU-cache row uses fixed illustrative timings (an estimate, not a measurement).
 
-| DSA | Service | Real Feature Use Case | Theoretical Complexity |
-|---|---|---|---|
-| **Trie** | Product Service | Search bar autocomplete dropdown | O(m) prefix lookup vs O(N) scan |
-| **Bloom Filter** | Product Service | Pre-DB product ID existence guard | O(k) hash check; 0 false negatives |
-| **LRU Cache** | User Service | Fast user profile session lookup | O(1) get/put with capacity eviction |
-| **Min Heap** | Order Service | Priority fulfillment processing | O(log n) push/pop priority queue |
-| **Graph BFS** | Recommendation Service | "Customers also bought" related items | O(V + E) breadth-first search |
-| **Segment Tree** | Analytics Service | Revenue queries across date ranges | O(log n) range query vs O(N) scan |
-| **0/1 Knapsack DP** | Analytics Service | Maximum discount value under budget | O(N * W) pseudo-polynomial time |
+✅ Work Completed
 
----
+Checkout and payments
 
-## ✅ Work Completed
+Saga checkout with atomic stock reservation, idempotency keys and compensation (stock released on failure).
+Card (Luhn, expiry, CVV checks) or UPI, followed by a simulated OTP step (123456). The OTP and approval exist only in the frontend; there is no backend OTP check. Card data never leaves the browser.
+Cash on delivery is stored as cod_pending: it is confirmed and queued for delivery, but no charge is made. It can be cancelled without a refund.
+Delivery options (Standard / Priority / Express) change the total; the free-delivery voucher is capped at ₹150.
 
-**Checkout & payments**
-- Real order flow: stock is reserved for every item atomically, then payment, then confirmation; on failure the stock is released and the order cancelled (saga with compensation and idempotency keys).
-- Payment now asks for authorisation before "order placed": card (Luhn, expiry, CVV checks) or UPI, followed by a simulated OTP step. The OTP (`123456`) and approval are a frontend simulation in test mode: no real payment gateway, no real money, no backend OTP verification. Card data never leaves the browser.
-- Delivery options (Standard / Priority / Express) change the total correctly; the free-delivery voucher is capped at ₹150.
-- Cash on delivery supported.
+Security and correctness
 
-**Catalogue & images**
-- 158 unique products in 7 categories with realistic prices (from the affordable range up), generated from one source (`tools/build_catalog.py` → `data/products.json` + `frontend/src/data/catalog.js`).
-- Every product shows a relevant illustration (icon + name) by default. Real photos can be added by saving them as `frontend/public/products/<product id>.jpg`; the site uses the photo when present and falls back to the illustration. Photos are shown uncropped.
-- Search page: category and price filters, sorting, "Show more" paging.
+Passwords are hashed with bcrypt (legacy plain values are upgraded on first login).
+JWT auth with customer, admin and service roles. Refunds and payment lookups need the service or admin role. POST /orders requires login and uses the user from the token.
+The Order service checks the submitted total against current product prices from the Product service and rejects a total outside the range the cart's own discount and delivery rules allow (HTTP 422).
+One successful payment per order (unique database index plus a 409 on a second attempt).
+If a payment succeeds after the order service timed out, the order service looks it up and refunds it.
+Rate limiting returns a clean HTTP 429.
+The order queue is rebuilt from the database on restart.
+A 50-buyer concurrency test (stock of 5) confirms exactly 5 orders succeed.
 
-**Accounts & UI**
-- Login, logout (header and profile page), profile page with real order history and wishlist (demo orders are opt-in via `SEED_DEMO_ORDERS=1`).
-- Full-width responsive layouts, consistent fonts and spacing; an error boundary shows a message instead of a blank page.
-- Discount optimiser (0/1 knapsack) chooses the best vouchers in the cart.
+Catalogue and UI
 
-**Quality**
-- 195 backend tests passing (`python -m pytest -q`).
-- The frontend has no automated test suite in this repository yet (checked manually).
+158 products in 7 categories, generated from one source (tools/build_catalog.py). Each product shows a generated icon tile by default; a real photo saved as frontend/public/products/<id>.jpg is used when present.
+Search with category and price filters, sorting and paging; cart with the knapsack discount optimiser; login, profile with order history and wishlist.
+If the backend is unreachable, the storefront shows built-in demo data and a red "offline" banner.
 
-**CI/CD (GitHub Actions, `.github/workflows/ci-cd.yml`)**
-- On every push to `main` (and pull requests): installs `master_requirements.txt` on Python 3.11 and runs `pytest tests/` (195 tests).
-- On push to `main`, after tests pass: builds Docker images for the services and pushes them to GitHub Container Registry (`ghcr.io`), tagged `latest` and with the commit SHA.
-- The SSH deploy job (`docker compose up` on a server) is written but disabled by default. It runs only when the repository variable `DEPLOY_ENABLED=true` and the secrets `DEPLOY_HOST`, `DEPLOY_USER` and `DEPLOY_SSH_KEY` are set. No server is currently deployed.
-- Dependencies are pinned where it matters (`sqlalchemy>=2.0,<2.1`) so a clean install matches the tested setup.
+Quality
 
-## 🔜 Known Limitations / Next Steps
-- Real product photos still to be added for most items.
-- Cash-on-delivery orders are stored as "paid" in the backend.
-- Home page category tiles show placeholder counts and external stock images.
-- Benchmark results are in `benchmarks/results.csv`. The LRU-cache row uses fixed illustrative timings, so treat it as an estimate.
+204 backend tests (python -m pytest tests -q).
+11 frontend unit tests (cd frontend && npm test): image fallback, session handling, offline detection.
+
+CI/CD (.github/workflows/ci-cd.yml)
+
+On every push to main and on pull requests: backend tests on Python 3.11, and a frontend job that runs npm ci, npm test and npm run build.
+On push to main, after the tests pass: builds the service Docker images and pushes them to GitHub Container Registry (ghcr.io).
+An SSH deploy job is written but off by default; it runs only when the repository variable DEPLOY_ENABLED=true and the deploy secrets are set. No server is currently deployed.
+▶️ Run it
+bash
+docker compose up -d --build        # backend services, Postgres, Redis
+cd frontend && npm install && npm run dev
+
+Test card for the simulated payment: 4242 4242 4242 4242, expiry 12/30, CVV 123, OTP 123456.
+
+🔜 Known Limitations
+Payments are simulated; there is no real gateway.
+The server range-checks order totals; it does not recompute exact discounts.
+If a payment succeeds after a timeout and the follow-up lookup also fails, the problem is only logged.
+Real product photos are still to be added for most products.
+Home page category tiles use external stock images.
+Frontend tests are unit tests only; there are no component or end-to-end tests.
+The LRU-cache benchmark row is an estimate.
