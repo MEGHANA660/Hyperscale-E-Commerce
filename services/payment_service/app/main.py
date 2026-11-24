@@ -182,6 +182,13 @@ def refund_payment(transaction_id: str, current_user: dict = Depends(require_ser
     db.commit()
     return _view(payment)
 
+@app.get("/payments/by-order/{order_id}")
+def get_payment_by_order(order_id: str, current_user: dict = Depends(require_service_or_admin), db: Session = Depends(get_db)):
+    """Used by the order service to find out whether a charge went through after a timeout."""
+    payment = db.query(Payment).filter(Payment.order_id == order_id, Payment.status == "success").first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="No successful payment for this order")
+    return _view(payment)
 
 @app.get("/payments/{transaction_id}")
 def get_payment(transaction_id: str, current_user: dict = Depends(require_service_or_admin), db: Session = Depends(get_db)):

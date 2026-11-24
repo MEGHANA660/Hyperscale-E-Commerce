@@ -79,3 +79,15 @@ def refund(transaction_id: str) -> dict:
         headers={"Authorization": f"Bearer {_service_token()}"},
         name="Payment service",
     )
+def find_successful_payment(order_ref: str) -> dict | None:
+    """The successful payment for this order, or None. Used after a charge whose outcome is unknown."""
+    try:
+        resp = httpx.get(f"{PAYMENT_SERVICE_URL}/payments/by-order/{order_ref}",
+                         headers={"Authorization": f"Bearer {_service_token()}"}, timeout=TIMEOUT)
+    except httpx.HTTPError as e:
+        raise ServiceError(503, f"Payment service unreachable ({e.__class__.__name__})")
+    if resp.status_code == 404:
+        return None
+    if resp.status_code >= 400:
+        raise ServiceError(resp.status_code, "Payment lookup failed")
+    return resp.json()

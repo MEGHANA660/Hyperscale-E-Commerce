@@ -323,7 +323,7 @@ async def create_order(
         raise HTTPException(status_code=e.status_code if e.status_code in (404, 409) else 503, detail=e.detail)
     _set_status(db, order, "reserved")
 
-        # 3. Take payment. Cash on delivery takes none now: the order is confirmed and paid at the door.
+    # 3. Take payment. Cash on delivery takes none now: the order is confirmed and paid at the door.
     pay_key = idemp_key or f"order-{order.id}"
     is_cod = payload.payment_method == "cod"
     try:
@@ -334,6 +334,16 @@ async def create_order(
                 _charge_with_one_retry, order.id, payload.total_price, payload.payment_method, pay_key
             )
     except clients.ServiceError as e:
+        if e.status_code >= 500 or e.status_code == 408:
+            # Timeout or outage: the charge may have gone through anyway. Look for it and
+            # refund it, so the customer is never charged for an order that failed.
+            try:
+                found = await run_in_threadpool(clients.find_successful_payment, str(order.id))
+                if found:
+                    await run_in_threadpool(clients.refund, found["transaction_id"])
+                    await logger.warning(f"Order {order.id}: charge succeeded after a timeout; refunded {found['transaction_id']}.")
+            except clients.ServiceError as lookup_err:
+                await logger.error(f"Order {order.id}: could not verify the charge after a timeout: {lookup_err.detail}")
         if not await run_in_threadpool(_release_held, db, order):
             await logger.error(f"Order {order.id}: stock release incomplete; the expiry sweep will retry.")
         _set_status(db, order, "payment_failed", e.detail)
@@ -396,7 +406,7 @@ async def cancel_order(order_id: int, user: CurrentUser = Depends(require_user),
     order = _owned_order_or_404(db, order_id, user)
     if order.status in ("cancelled", "refunded"):
         return {"order_id": order.id, "status": order.status, "message": "Already cancelled"}
-    if order.status != "paid":
+    if order.status not in FULFIL_STATES:
         raise HTTPException(status_code=409, detail=f"Order in status '{order.status}' cannot be cancelled")
 
     if order.payment_txn_id:
@@ -482,7 +492,7 @@ async def process_next_order(_: CurrentUser = Depends(require_admin), db: Sessio
     while not order_queue.is_empty():
         priority, order_data = order_queue.pop()
         order = db.query(models.Order).filter(models.Order.id == order_data["id"]).first()
-        if not order or order.status != "paid":
+        if not order or order.status not in FULFIL_STATES:
             continue
         heap_stats["total_processed"] += 1
         order.status = "delivered"
