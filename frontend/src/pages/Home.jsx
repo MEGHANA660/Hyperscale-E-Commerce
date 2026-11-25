@@ -96,6 +96,20 @@ const TESTIMONIALS = [
 export default function Home() {
   const categoriesRef = useRef(null)
   const [currentSlide, setCurrentSlide] = useState(0)
+    // Real countdown to the end of today (local time); it resets at midnight.
+  const secondsToMidnight = () => {
+    const now = new Date()
+    const end = new Date(now)
+    end.setHours(24, 0, 0, 0)
+    return Math.max(0, Math.floor((end - now) / 1000))
+  }
+  const [secsLeft, setSecsLeft] = useState(secondsToMidnight)
+  useEffect(() => {
+    const t = setInterval(() => setSecsLeft(secondsToMidnight()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const pad = n => String(n).padStart(2, '0')
+  const countdown = `${pad(Math.floor(secsLeft / 3600))} : ${pad(Math.floor((secsLeft % 3600) / 60))} : ${pad(secsLeft % 60)}`
 
   // Automatic Promo Carousel slide effect
   useEffect(() => {
@@ -252,7 +266,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 text-red-600 font-mono text-sm sm:text-base font-black bg-white border border-red-150 px-4 py-2 rounded-xl">
             <Clock size={16} className="animate-pulse" />
-            <span>04 : 18 : 39</span>
+            <span>{countdown}</span>
           </div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
