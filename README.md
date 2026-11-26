@@ -1,5 +1,7 @@
 HyperScale Commerce
 
+![CI](https://github.com/MEGHANA660/Hyperscale-E-Commerce/actions/workflows/ci-cd.yml/badge.svg)
+
 An e-commerce microservices platform that applies classic data structures and algorithms to concrete shop bottlenecks (search, queueing, caching, recommendations, analytics, discounts) and measures them against naive versions. Built with FastAPI services, a React + Vite + Tailwind storefront, PostgreSQL 15 and Redis 7, run with Docker Compose.
 
 Payments are simulated (test mode). There is no real payment gateway and no real money.
